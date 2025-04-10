@@ -11,7 +11,8 @@ import Chat from './pages/Chat';
 import Favorites from './pages/Favorites';
 import { AuthProvider } from './context/AuthContext';
 import PrivateRoute from './components/PrivateRoute';
-
+import ServiceDetailsScreen from './pages/ServiceDetailsScreen';
+import ChatScreen from './pages/Chatscreen';
 function App() {
   return (
     <AuthProvider>
@@ -45,6 +46,22 @@ function App() {
               element={
                 <PrivateRoute>
                   <Favorites />
+                </PrivateRoute>
+              }
+            />
+            <Route
+              path="/chatscreen/:currentUserId/:providerId"
+              element={
+                <PrivateRoute>
+                  <ChatScreen />
+                </PrivateRoute>
+              }
+            />
+             <Route
+              path="/serviceDetails"
+              element={
+                <PrivateRoute>
+                  <ServiceDetailsScreen />
                 </PrivateRoute>
               }
             />

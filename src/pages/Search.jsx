@@ -1,9 +1,10 @@
-import { useState, useEffect } from 'react';
-import { MapPin, Search as SearchIcon } from 'lucide-react';
+import { useEffect, useState } from 'react';
 import { MapContainer, TileLayer, Marker, Circle, Popup } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
+import { Search } from 'lucide-react';
 import React from 'react';
+
 const allProviders = [
   {
     id: 1,
@@ -13,7 +14,7 @@ const allProviders = [
     location: {
       latitude: 37.78825,
       longitude: -122.4324,
-      address: 'San Francisco, CA',
+      address: 'San Francisco, CA'
     },
   },
   {
@@ -24,7 +25,7 @@ const allProviders = [
     location: {
       latitude: 37.78525,
       longitude: -122.4354,
-      address: 'San Francisco, CA',
+      address: 'San Francisco, CA'
     },
   },
   {
@@ -35,7 +36,7 @@ const allProviders = [
     location: {
       latitude: 37.78925,
       longitude: -122.4344,
-      address: 'San Francisco, CA',
+      address: 'San Francisco, CA'
     },
   },
   {
@@ -46,161 +47,128 @@ const allProviders = [
     location: {
       latitude: 37.78625,
       longitude: -122.4334,
-      address: 'San Francisco, CA',
+      address: 'San Francisco, CA'
     },
   },
 ];
 
-const Search = () => {
+export default function SearchScreen() {
   const [searchQuery, setSearchQuery] = useState('');
-  const [location, setLocation] = useState(null);
-  const [errorMsg, setErrorMsg] = useState(null);
+  const [position, setPosition] = useState(null);
   const [price, setPrice] = useState(100);
-  const [category, setCategory] = useState('All');
   const [radius, setRadius] = useState(5);
-  const [locationStatus, setLocationStatus] = useState('not-started');
+  const [category, setCategory] = useState('All');
 
   useEffect(() => {
     navigator.geolocation.getCurrentPosition(
       (pos) => {
-        setLocation({
-          latitude: pos.coords.latitude,
-          longitude: pos.coords.longitude,
-        });
-        setLocationStatus('success');
+        const { latitude, longitude } = pos.coords;
+        setPosition({ lat: latitude, lng: longitude });
       },
       (err) => {
-        setErrorMsg('Location permission denied.');
-        setLocationStatus('error');
+        console.error('Geolocation error:', err);
       }
     );
   }, []);
 
-  const filteredProviders = allProviders.filter((p) => {
-    return (
-      (category === 'All' || p.service === category) &&
-      p.name.toLowerCase().includes(searchQuery.toLowerCase())
-    );
-  });
-
-  const userIcon = new L.Icon({
-    iconUrl: 'https://unpkg.com/leaflet@1.9.3/dist/images/marker-icon.png',
-    iconSize: [25, 41],
-    iconAnchor: [12, 41],
-  });
-
   return (
-    <div className="flex flex-col min-h-screen bg-white">
-      <div className="bg-purple-300 p-4 space-y-4">
-        <div className="flex items-center bg-white rounded px-3 py-2">
-          <SearchIcon className="text-gray-500 mr-2" size={20} />
+    <div className="flex flex-col h-screen">
+      <div className="bg-purple-300 p-4">
+        <div className="flex items-center bg-white rounded-lg px-4 py-2 mb-4">
+          <Search size={20} className="text-gray-600 mr-2" />
           <input
-            className="flex-1 outline-none"
             type="text"
             placeholder="Search services or providers..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
+            className="flex-1 text-base focus:outline-none"
           />
         </div>
 
-        <div>
-          <label className="block text-gray-600">Price: ${price}</label>
-          <input
-            type="range"
-            min="0"
-            max="200"
-            step="10"
-            value={price}
-            onChange={(e) => setPrice(parseInt(e.target.value))}
-            className="w-full"
-          />
-        </div>
+        <label className="text-sm text-gray-700">Price: ${price}</label>
+        <input
+          type="range"
+          min="0"
+          max="200"
+          step="10"
+          value={price}
+          onChange={(e) => setPrice(Number(e.target.value))}
+          className="w-full mb-4"
+        />
 
-        <div>
-          <label className="block text-gray-600">Distance: {radius} km</label>
-          <input
-            type="range"
-            min="1"
-            max="50"
-            step="1"
-            value={radius}
-            onChange={(e) => setRadius(parseInt(e.target.value))}
-            className="w-full"
-          />
-        </div>
+        <label className="text-sm text-gray-700">Distance: {radius} km</label>
+        <input
+          type="range"
+          min="1"
+          max="50"
+          step="1"
+          value={radius}
+          onChange={(e) => setRadius(Number(e.target.value))}
+          className="w-full mb-4"
+        />
 
-        <div>
-          <label className="block text-gray-600">Category</label>
-          <select
-            value={category}
-            onChange={(e) => setCategory(e.target.value)}
-            className="w-full p-2 rounded"
-          >
-            <option>All</option>
-            <option>Interior Designer</option>
-            <option>Personal Trainer</option>
-            <option>Hair Stylist</option>
-            <option>Plumber</option>
-          </select>
-        </div>
+        <label className="text-sm text-gray-700">Category</label>
+        <select
+          value={category}
+          onChange={(e) => setCategory(e.target.value)}
+          className="w-full mb-4 p-2 rounded-lg bg-white border border-gray-300"
+        >
+          <option value="All">All</option>
+          <option value="Interior Designer">Interior Designer</option>
+          <option value="Personal Trainer">Personal Trainer</option>
+          <option value="Hair Stylist">Hair Stylist</option>
+          <option value="Plumber">Plumber</option>
+        </select>
       </div>
 
-      {locationStatus === 'loading' && (
-        <div className="flex-1 flex flex-col justify-center items-center p-4">
-          <p className="text-gray-500">Getting your location...</p>
-        </div>
-      )}
-
-      {locationStatus === 'error' && (
-        <div className="flex-1 flex flex-col justify-center items-center p-4">
-          <MapPin className="text-pink-400" size={40} />
-          <p className="text-center text-gray-600 mt-2">{errorMsg}</p>
-          <button
-            className="mt-4 bg-pink-200 px-4 py-2 rounded"
-            onClick={() => window.location.reload()}
-          >
-            Retry
-          </button>
-        </div>
-      )}
-
-      {locationStatus === 'success' && location && (
-        <div className="flex-1 h-[400px]">
+      <div className="flex-1">
+        {position ? (
           <MapContainer
-            center={[location.latitude, location.longitude]}
+            center={position}
             zoom={13}
+            className="w-full h-full z-0"
             scrollWheelZoom={true}
-            className="w-full h-full"
           >
             <TileLayer
-              attribution='&copy; <a href="http://osm.org/copyright">OpenStreetMap</a> contributors'
               url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+              attribution="&copy; OpenStreetMap contributors"
             />
-            <Marker position={[location.latitude, location.longitude]} icon={userIcon}>
-              <Popup>Your Location</Popup>
+            <Marker position={position} icon={L.icon({ iconUrl: 'https://unpkg.com/leaflet@1.9.3/dist/images/marker-icon.png', iconAnchor: [12, 41] })}>
+              <Popup>You are here</Popup>
             </Marker>
             <Circle
-              center={[location.latitude, location.longitude]}
+              center={position}
               radius={radius * 1000}
-              pathOptions={{ fillColor: '#CB9DF0', color: '#CB9DF0', fillOpacity: 0.3 }}
+              pathOptions={{ fillColor: '#CB9DF0', fillOpacity: 0.3, color: '#CB9DF0' }}
             />
-            {filteredProviders.map((provider) => (
-              <Marker
-                key={provider.id}
-                position={[provider.location.latitude, provider.location.longitude]}
-              >
-                <Popup>
-                  <strong>{provider.name}</strong>
-                  <br />
-                  {provider.service}
-                </Popup>
-              </Marker>
-            ))}
+            {allProviders
+              .filter((provider) =>
+                category === 'All' || provider.service === category
+              )
+              .map((provider) => (
+                <Marker
+                  key={provider.id}
+                  position={{
+                    lat: provider.location.latitude,
+                    lng: provider.location.longitude,
+                  }}
+                >
+                  <Popup>
+                    <div>
+                      <p className="font-semibold">{provider.name}</p>
+                      <p className="text-sm">{provider.service}</p>
+                      <p className="text-xs">Rating: {provider.rating}</p>
+                    </div>
+                  </Popup>
+                </Marker>
+              ))}
           </MapContainer>
-        </div>
-      )}
+        ) : (
+          <div className="flex justify-center items-center h-full">
+            <p className="text-gray-600">Fetching your location...</p>
+          </div>
+        )}
+      </div>
     </div>
   );
-};
-
-export default Search;
+}

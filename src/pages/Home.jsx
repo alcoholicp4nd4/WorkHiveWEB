@@ -186,7 +186,7 @@ export default function Home() {
               key={provider.uid}
               onClick={() => {
                 if (currentUser) {
-                  navigate(`/chat/${currentUser.uid}/${provider.uid}`);
+                  navigate(`/chatscreen/${currentUser.uid}/${provider.uid}`);
                 }
               }}
               className="flex bg-[#F0C1E1] rounded-xl shadow p-4 mb-4 cursor-pointer"
