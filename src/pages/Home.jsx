@@ -110,8 +110,8 @@ export default function Home() {
           {categories.map((category) => (
             <div
               key={category.value}
-              className={`min-w-[150px] p-3 bg-black text-blue-300 border border-white rounded-xl shadow-md shadow-white ${category.disabled ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
-              onClick={() => !category.disabled && navigate(`/search?category=${category.value}`)}
+              className={`min-w-[150px] p-3 bg-black text-xl font-bold text-pink-500 border border-white rounded-xl shadow-md shadow-white ${category.disabled ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
+              onClick={() => !category.disabled && navigate(`/search/${category.value}`)}
             >
               <h3 className="text-base font-semibold">{category.label}</h3>
             </div>
@@ -121,7 +121,7 @@ export default function Home() {
 
       {/* Services Section */}
       <section className="px-5 pb-10">
-        <h2 className="text-2xl font-bold mb-4 text-white">Service Providers</h2>
+        <h2 className="text-2xl font-bold mb-4 text-white">Featured Providers</h2>
         {loading ? (
           <p className="text-white">Loading services...</p>
         ) : services.length === 0 ? (
@@ -138,7 +138,7 @@ export default function Home() {
                     alert("Please log in to start a chat.");
                   }
                 }}
-                className="flex bg-black text-blue-300 border border-white rounded-xl shadow-md shadow-white p-4 mb-4 cursor-pointer"
+                className="flex bg-black text-xl font-bold text-pink-500 border border-white rounded-xl shadow-md shadow-white p-4 mb-4 cursor-pointer"
               >
                 <div className="flex-1">
                   <h3 className="text-lg font-semibold">{service.title}</h3>

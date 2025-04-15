@@ -28,7 +28,7 @@ export default function Navbar() {
           {/* Logo and Navigation */}
           <div className="flex items-center space-x-8">
             <Link to="/" className="text-xl font-bold text-pink-500">
-              ServiceMarket
+              WorkHive
             </Link>
 
             <div className="hidden sm:flex space-x-6 text-gray-300">
