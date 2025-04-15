@@ -60,14 +60,14 @@ export default function SearchScreen() {
   const [category, setCategory] = useState('All');
 
   useEffect(() => {
-    navigator.geolocation.getCurrentPosition(
-      (pos) => {
-        const { latitude, longitude } = pos.coords;
-        setPosition({ lat: latitude, lng: longitude });
-      },
-      (err) => {
-        console.error('Geolocation error:', err);
-      }
+    navigator.geolocation.watchPosition(
+      (position) => {
+        const { latitude, longitude, accuracy } = position.coords;
+          // Accept and use the position
+          setPosition({ lat: latitude, lng: longitude });
+        },
+      (error) => console.error('Error:', error),
+      { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
     );
   }, []);
 
@@ -142,7 +142,7 @@ export default function SearchScreen() {
               pathOptions={{ fillColor: '#CB9DF0', fillOpacity: 0.3, color: '#CB9DF0' }}
             />
             {allProviders
-              .filter((provider) =>
+              .filter((provider)=>
                 category === 'All' || provider.service === category
               )
               .map((provider) => (

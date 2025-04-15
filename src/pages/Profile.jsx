@@ -15,7 +15,7 @@ import {
   updateUserProfileImage,
   updateUserToProvider,
 } from '../database/authDatabase';
-
+import { useNavigate } from 'react-router-dom';
 const menuItems = [
   { icon: Settings, label: 'Settings' },
   { icon: Bell, label: 'Notifications' },
@@ -28,7 +28,7 @@ export default function Profile() {
   const [user, setUser] = useState(null);
   const [profileImage, setProfileImage] = useState(null);
   const [loading, setLoading] = useState(true);
-
+  const navigate = useNavigate();
   useEffect(() => {
     const fetchUserData = async () => {
       const currentUser = await getCurrentUser();
@@ -111,7 +111,7 @@ export default function Profile() {
         ))}
 
         <button
-          onClick={() => alert('Navigate to Add Service')}
+          onClick={() => navigate('/addservice')}
           className="w-full bg-[#A9D1F7] text-gray-800 p-4 rounded-lg text-left"
         >
           Add Service

@@ -13,6 +13,7 @@ import { AuthProvider } from './context/AuthContext';
 import PrivateRoute from './components/PrivateRoute';
 import ServiceDetailsScreen from './pages/ServiceDetailsScreen';
 import ChatScreen from './pages/Chatscreen';
+import AddServiceScreen from './pages/AddServiceScreen';
 function App() {
   return (
     <AuthProvider>
@@ -24,7 +25,7 @@ function App() {
             <Route path="/" element={<Home />} />
             <Route path="/register" element={<Register />} />
             <Route path="/login" element={<Login />} />
-            <Route path="/search" element={<Search />} />
+            <Route path="/search/:Category" element={<Search />} />
             <Route
               path="/profile"
               element={
@@ -62,6 +63,14 @@ function App() {
               element={
                 <PrivateRoute>
                   <ServiceDetailsScreen />
+                </PrivateRoute>
+              }
+              />
+            <Route
+              path="/addservice"
+              element={
+                <PrivateRoute>
+                  <AddServiceScreen />
                 </PrivateRoute>
               }
             />
