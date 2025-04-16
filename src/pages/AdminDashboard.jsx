@@ -42,7 +42,18 @@ export default function AdminDashboard() {
   return (
     <div style={{ padding: 20 }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <h2>Admin Dashboard</h2>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 20 }}>
+          <h2>Admin Dashboard</h2>
+          <a href="/admin-reports" style={{
+            padding: '8px 12px',
+            background: '#6366f1',
+            color: 'white',
+            borderRadius: '5px',
+            textDecoration: 'none'
+          }}>
+            Reports
+          </a>
+        </div>
         <div style={{ textAlign: 'right' }}>
           <input
             type="text"

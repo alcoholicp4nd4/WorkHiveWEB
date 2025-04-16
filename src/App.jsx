@@ -14,6 +14,13 @@ import PrivateRoute from './components/PrivateRoute';
 import ServiceDetailsScreen from './pages/ServiceDetailsScreen';
 import ChatScreen from './pages/Chatscreen';
 import AddServiceScreen from './pages/AddServiceScreen';
+import AdminDashboard from './pages/AdminDashboard';
+
+const AdminRoute = ({ children }) => {
+  const userData = JSON.parse(localStorage.getItem('loggedInUser'));
+  return userData?.role === 'admin' ? children : <Navigate to="/login" replace />;
+};
+
 function App() {
   return (
     <AuthProvider>
@@ -58,19 +65,29 @@ function App() {
                 </PrivateRoute>
               }
             />
-             <Route
+            <Route
               path="/serviceDetails"
               element={
                 <PrivateRoute>
                   <ServiceDetailsScreen />
                 </PrivateRoute>
               }
-              />
+            />
             <Route
               path="/addservice"
               element={
                 <PrivateRoute>
                   <AddServiceScreen />
+                </PrivateRoute>
+              }
+            />
+            <Route
+              path="/admin-dashboard"
+              element={
+                <PrivateRoute>
+                  <AdminRoute>
+                    <AdminDashboard />
+                  </AdminRoute>
                 </PrivateRoute>
               }
             />
