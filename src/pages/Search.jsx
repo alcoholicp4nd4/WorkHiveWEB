@@ -1,9 +1,58 @@
-import { useEffect, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { MapContainer, TileLayer, Marker, Circle, Popup } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
 import { Search } from 'lucide-react';
-import React from 'react';
+import { useParams } from 'react-router-dom';
+import { db } from '../database/firebaseConfig';
+import { collection, query, where, onSnapshot } from 'firebase/firestore';
+
+const categories = [
+  { label: 'Web Development', value: 'web-development' },
+  { label: 'Mobile App Development', value: 'mobile-app-development' },
+  { label: 'Software Engineering', value: 'software-engineering' },
+  { label: 'UI/UX Design', value: 'ui-ux-design' },
+  { label: 'QA Testing', value: 'qa-testing' },
+  { label: 'Game Development', value: 'game-development' },
+  { label: 'DevOps & Cloud', value: 'devops-cloud' },
+  { label: 'Graphic Design', value: 'graphic-design' },
+  { label: 'Logo Design', value: 'logo-design' },
+  { label: 'Animation', value: 'animation' },
+  { label: 'Video Editing', value: 'video-editing' },
+  { label: 'Photography', value: 'photography' },
+  { label: 'Branding & Identity', value: 'branding' },
+  { label: 'Illustration', value: 'illustration' },
+  { label: 'SEO Optimization', value: 'seo' },
+  { label: 'Digital Marketing', value: 'digital-marketing' },
+  { label: 'Social Media Management', value: 'social-media' },
+  { label: 'Email Marketing', value: 'email-marketing' },
+  { label: 'Copywriting', value: 'copywriting' },
+  { label: 'Business Consulting', value: 'business-consulting' },
+  { label: 'Sales Strategy', value: 'sales-strategy' },
+  { label: 'Plumbing', value: 'plumbing' },
+  { label: 'Electrical Work', value: 'electrical' },
+  { label: 'Cleaning', value: 'cleaning' },
+  { label: 'Moving Services', value: 'moving' },
+  { label: 'Handyman Services', value: 'handyman' },
+  { label: 'Pest Control', value: 'pest-control' },
+  { label: 'Landscaping', value: 'landscaping' },
+  { label: 'Tutoring', value: 'tutoring' },
+  { label: 'Language Teaching', value: 'language-teaching' },
+  { label: 'Life Coaching', value: 'life-coaching' },
+  { label: 'Career Coaching', value: 'career-coaching' },
+  { label: 'Test Preparation', value: 'test-prep' },
+  { label: 'Fitness Training', value: 'fitness-training' },
+  { label: 'Yoga Instruction', value: 'yoga' },
+  { label: 'Therapy & Counseling', value: 'therapy' },
+  { label: 'Nutrition Planning', value: 'nutrition' },
+  { label: 'Beauty & Skincare', value: 'beauty' },
+  { label: 'Hair Styling', value: 'hair-styling' },
+  { label: 'Event Planning', value: 'event-planning' },
+  { label: 'Virtual Assistance', value: 'virtual-assistance' },
+  { label: 'Data Entry', value: 'data-entry' },
+  { label: 'Translation Services', value: 'translation' },
+  { label: 'Custom Orders', value: 'custom-orders' },
+];
 
 const allProviders = [
   {
@@ -53,23 +102,50 @@ const allProviders = [
 ];
 
 export default function SearchScreen() {
+  const { category: paramCategory } = useParams();
+  const [category, setCategory] = useState('All');
+  const [services, setServices] = useState([]);
+  const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [position, setPosition] = useState(null);
   const [price, setPrice] = useState(100);
   const [radius, setRadius] = useState(5);
-  const [category, setCategory] = useState('All');
+
+  // Sync category with URL param on mount
+  useEffect(() => {
+    if (paramCategory) {
+      setCategory(paramCategory);
+    }
+  }, [paramCategory]);
 
   useEffect(() => {
     navigator.geolocation.watchPosition(
       (position) => {
-        const { latitude, longitude, accuracy } = position.coords;
-          // Accept and use the position
-          setPosition({ lat: latitude, lng: longitude });
-        },
+        const { latitude, longitude } = position.coords;
+        setPosition({ lat: latitude, lng: longitude });
+      },
       (error) => console.error('Error:', error),
       { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
     );
   }, []);
+
+  useEffect(() => {
+    if (category && category !== 'All') {
+      const q = query(collection(db, 'services'), where('category', '==', category));
+      const unsubscribe = onSnapshot(q, (snapshot) => {
+        const fetched = snapshot.docs.map(doc => ({
+          id: doc.id,
+          ...doc.data(),
+        }));
+        setServices(fetched);
+        setLoading(false);
+      });
+      return () => unsubscribe();
+    } else {
+      setServices([]);
+      setLoading(false);
+    }
+  }, [category]);
 
   return (
     <div className="flex flex-col h-screen">
@@ -114,10 +190,11 @@ export default function SearchScreen() {
           className="w-full mb-4 p-2 rounded-lg bg-white border border-gray-300"
         >
           <option value="All">All</option>
-          <option value="Interior Designer">Interior Designer</option>
-          <option value="Personal Trainer">Personal Trainer</option>
-          <option value="Hair Stylist">Hair Stylist</option>
-          <option value="Plumber">Plumber</option>
+          {categories.map((cat) => (
+            <option key={cat.value} value={cat.value}>
+              {cat.label}
+            </option>
+          ))}
         </select>
       </div>
 
@@ -141,27 +218,29 @@ export default function SearchScreen() {
               radius={radius * 1000}
               pathOptions={{ fillColor: '#CB9DF0', fillOpacity: 0.3, color: '#CB9DF0' }}
             />
-            {allProviders
-              .filter((provider)=>
-                category === 'All' || provider.service === category
-              )
-              .map((provider) => (
-                <Marker
-                  key={provider.id}
-                  position={{
-                    lat: provider.location.latitude,
-                    lng: provider.location.longitude,
-                  }}
-                >
-                  <Popup>
-                    <div>
-                      <p className="font-semibold">{provider.name}</p>
-                      <p className="text-sm">{provider.service}</p>
-                      <p className="text-xs">Rating: {provider.rating}</p>
-                    </div>
-                  </Popup>
-                </Marker>
-              ))}
+            {services
+  .filter((provider) =>
+    (category === 'All' || provider.category === category) &&
+    (!searchQuery || provider.name.toLowerCase().includes(searchQuery.toLowerCase()))
+  )
+  .map((provider) => (
+    <Marker
+      key={provider.id}
+      position={{
+        lat: provider.location.latitude,
+        lng: provider.location.longitude,
+      }}
+    >
+      <Popup>
+        <div>
+          <p className="font-semibold">{provider.name}</p>
+          <p className="text-sm">{provider.service}</p>
+          <p className="text-xs">Rating: {provider.rating}</p>
+        </div>
+      </Popup>
+    </Marker>
+))}
+
           </MapContainer>
         ) : (
           <div className="flex justify-center items-center h-full">
