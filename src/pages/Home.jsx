@@ -80,8 +80,7 @@ export default function Home() {
     };
     fetchUser();
   }, []);
-
-  return (
+ return (
     <div className="overflow-hidden bg-black">
       {/* Hero Section */}
       <div
@@ -103,7 +102,7 @@ export default function Home() {
           {categories.map((category) => (
             <div
               key={category.value}
-              className={`min-w-[150px] p-3 bg-black text-xl font-bold text-pink-500 border border-white rounded-xl shadow-md shadow-white ${category.disabled ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
+              className={`min-w-[150px] p-3 bg-white text-xl font-bold text-pink-500 border border-white rounded-xl shadow-md shadow-white ${category.disabled ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
               onClick={() => !category.disabled && navigate(`/search/${category.value}`)}
             >
               <h3 className="text-base font-semibold">{category.label}</h3>

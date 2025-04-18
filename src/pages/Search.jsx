@@ -7,7 +7,7 @@ import { useParams } from 'react-router-dom';
 import { db } from '../database/firebaseConfig';
 import { collection, query, where, onSnapshot } from 'firebase/firestore';
 
-const categories = [
+const predefinedCategories = [
   { label: 'Web Development', value: 'web-development' },
   { label: 'Mobile App Development', value: 'mobile-app-development' },
   { label: 'Software Engineering', value: 'software-engineering' },
@@ -54,56 +54,29 @@ const categories = [
   { label: 'Custom Orders', value: 'custom-orders' },
 ];
 
-const allProviders = [
-  {
-    id: 1,
-    name: 'Sarah Johnson',
-    service: 'Interior Designer',
-    rating: 4.9,
-    location: {
-      latitude: 37.78825,
-      longitude: -122.4324,
-      address: 'San Francisco, CA'
-    },
-  },
-  {
-    id: 2,
-    name: 'Michael Chen',
-    service: 'Personal Trainer',
-    rating: 4.8,
-    location: {
-      latitude: 37.78525,
-      longitude: -122.4354,
-      address: 'San Francisco, CA'
-    },
-  },
-  {
-    id: 3,
-    name: 'Emma Rodriguez',
-    service: 'Hair Stylist',
-    rating: 4.7,
-    location: {
-      latitude: 37.78925,
-      longitude: -122.4344,
-      address: 'San Francisco, CA'
-    },
-  },
-  {
-    id: 4,
-    name: 'David Kim',
-    service: 'Plumber',
-    rating: 4.6,
-    location: {
-      latitude: 37.78625,
-      longitude: -122.4334,
-      address: 'San Francisco, CA'
-    },
-  },
-];
+// Define a custom blue icon for the user
+const userIcon = new L.Icon({
+  iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-blue.png',
+  shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/0.7.7/images/marker-shadow.png',
+  iconSize: [25, 41],    // Size of the icon
+  iconAnchor: [12, 41],   // Point of the icon which will correspond to marker's location
+  popupAnchor: [1, -34],  // Point from which the popup should open relative to the iconAnchor
+  shadowSize: [41, 41]    // Size of the shadow
+});
+
+// Define the default icon for providers (optional, but good practice)
+const providerIcon = new L.Icon({
+  iconUrl: 'https://unpkg.com/leaflet@1.9.3/dist/images/marker-icon.png',
+  shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/0.7.7/images/marker-shadow.png',
+  iconSize: [25, 41],
+  iconAnchor: [12, 41],
+  popupAnchor: [1, -34],
+  shadowSize: [41, 41]
+});
 
 export default function SearchScreen() {
   const { category: paramCategory } = useParams();
-  const [category, setCategory] = useState('All');
+  const [category, setCategory] = useState(paramCategory || 'All');
   const [services, setServices] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
@@ -111,12 +84,9 @@ export default function SearchScreen() {
   const [price, setPrice] = useState(100);
   const [radius, setRadius] = useState(5);
 
-  // Sync category with URL param on mount
-  useEffect(() => {
-    if (paramCategory) {
-      setCategory(paramCategory);
-    }
-  }, [paramCategory]);
+  const categories = predefinedCategories.some(cat => cat.value === paramCategory)
+    ? predefinedCategories
+    : paramCategory ? [...predefinedCategories, { label: paramCategory, value: paramCategory }] : predefinedCategories;
 
   useEffect(() => {
     navigator.geolocation.watchPosition(
@@ -124,27 +94,34 @@ export default function SearchScreen() {
         const { latitude, longitude } = position.coords;
         setPosition({ lat: latitude, lng: longitude });
       },
-      (error) => console.error('Error:', error),
+      (error) => console.error('Geolocation Error:', error),
       { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
     );
   }, []);
 
   useEffect(() => {
+    setLoading(true);
+    let q;
     if (category && category !== 'All') {
-      const q = query(collection(db, 'services'), where('category', '==', category));
-      const unsubscribe = onSnapshot(q, (snapshot) => {
-        const fetched = snapshot.docs.map(doc => ({
-          id: doc.id,
-          ...doc.data(),
-        }));
-        setServices(fetched);
-        setLoading(false);
-      });
-      return () => unsubscribe();
+      q = query(collection(db, 'services'), where('category', '==', category));
     } else {
-      setServices([]);
-      setLoading(false);
+      q = query(collection(db, 'services'));
     }
+
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      const fetched = snapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data(),
+      }));
+      console.log(`Fetched ${fetched.length} services for category: ${category}`);
+      setServices(fetched);
+      setLoading(false);
+    }, (error) => {
+      console.error("Firestore Error:", error);
+      setLoading(false);
+    });
+
+    return () => unsubscribe();
   }, [category]);
 
   return (
@@ -189,9 +166,9 @@ export default function SearchScreen() {
           onChange={(e) => setCategory(e.target.value)}
           className="w-full mb-4 p-2 rounded-lg bg-white border border-gray-300"
         >
-          <option value="All">All</option>
+          <option value="All" key="all-option">All</option>
           {categories.map((cat) => (
-            <option key={cat.value} value={cat.value}>
+            <option key={`category-${cat.value}`} value={cat.value}>
               {cat.label}
             </option>
           ))}
@@ -210,7 +187,7 @@ export default function SearchScreen() {
               url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
               attribution="&copy; OpenStreetMap contributors"
             />
-            <Marker position={position} icon={L.icon({ iconUrl: 'https://unpkg.com/leaflet@1.9.3/dist/images/marker-icon.png', iconAnchor: [12, 41] })}>
+            <Marker position={position} icon={userIcon}>
               <Popup>You are here</Popup>
             </Marker>
             <Circle
@@ -219,28 +196,33 @@ export default function SearchScreen() {
               pathOptions={{ fillColor: '#CB9DF0', fillOpacity: 0.3, color: '#CB9DF0' }}
             />
             {services
-  .filter((provider) =>
-    (category === 'All' || provider.category === category) &&
-    (!searchQuery || provider.name.toLowerCase().includes(searchQuery.toLowerCase()))
-  )
-  .map((provider) => (
-    <Marker
-      key={provider.id}
-      position={{
-        lat: provider.location.latitude,
-        lng: provider.location.longitude,
-      }}
-    >
-      <Popup>
-        <div>
-          <p className="font-semibold">{provider.name}</p>
-          <p className="text-sm">{provider.service}</p>
-          <p className="text-xs">Rating: {provider.rating}</p>
-        </div>
-      </Popup>
-    </Marker>
-))}
-
+              .filter((provider) =>
+                !searchQuery || (provider.name && provider.name.toLowerCase().includes(searchQuery.toLowerCase()))
+              )
+              .map((provider) => {
+                if (!provider.location || typeof provider.location.latitude !== 'number' || typeof provider.location.longitude !== 'number') {
+                  console.warn(`Provider ${provider.name || provider.id} has invalid location data:`, provider.location);
+                  return null;
+                }
+                return (
+                  <Marker
+                    key={provider.id}
+                    position={{
+                      lat: provider.location.latitude,
+                      lng: provider.location.longitude,
+                    }}
+                    icon={providerIcon}
+                  >
+                    <Popup>
+                      <div>
+                        <p className="font-semibold">{provider.name}</p>
+                        <p className="text-sm">{provider.service || 'Service not specified'}</p>
+                        <p className="text-xs">Rating: {provider.rating || 'N/A'}</p>
+                      </div>
+                    </Popup>
+                  </Marker>
+                );
+              })}
           </MapContainer>
         ) : (
           <div className="flex justify-center items-center h-full">
