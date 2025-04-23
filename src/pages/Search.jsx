@@ -1,75 +1,128 @@
-import { useEffect, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { MapContainer, TileLayer, Marker, Circle, Popup } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
 import { Search } from 'lucide-react';
-import React from 'react';
+import { useParams } from 'react-router-dom';
+import { db } from '../database/firebaseConfig';
+import { collection, query, where, onSnapshot } from 'firebase/firestore';
 
-const allProviders = [
-  {
-    id: 1,
-    name: 'Sarah Johnson',
-    service: 'Interior Designer',
-    rating: 4.9,
-    location: {
-      latitude: 37.78825,
-      longitude: -122.4324,
-      address: 'San Francisco, CA'
-    },
-  },
-  {
-    id: 2,
-    name: 'Michael Chen',
-    service: 'Personal Trainer',
-    rating: 4.8,
-    location: {
-      latitude: 37.78525,
-      longitude: -122.4354,
-      address: 'San Francisco, CA'
-    },
-  },
-  {
-    id: 3,
-    name: 'Emma Rodriguez',
-    service: 'Hair Stylist',
-    rating: 4.7,
-    location: {
-      latitude: 37.78925,
-      longitude: -122.4344,
-      address: 'San Francisco, CA'
-    },
-  },
-  {
-    id: 4,
-    name: 'David Kim',
-    service: 'Plumber',
-    rating: 4.6,
-    location: {
-      latitude: 37.78625,
-      longitude: -122.4334,
-      address: 'San Francisco, CA'
-    },
-  },
+const predefinedCategories = [
+  { label: 'Web Development', value: 'web-development' },
+  { label: 'Mobile App Development', value: 'mobile-app-development' },
+  { label: 'Software Engineering', value: 'software-engineering' },
+  { label: 'UI/UX Design', value: 'ui-ux-design' },
+  { label: 'QA Testing', value: 'qa-testing' },
+  { label: 'Game Development', value: 'game-development' },
+  { label: 'DevOps & Cloud', value: 'devops-cloud' },
+  { label: 'Graphic Design', value: 'graphic-design' },
+  { label: 'Logo Design', value: 'logo-design' },
+  { label: 'Animation', value: 'animation' },
+  { label: 'Video Editing', value: 'video-editing' },
+  { label: 'Photography', value: 'photography' },
+  { label: 'Branding & Identity', value: 'branding' },
+  { label: 'Illustration', value: 'illustration' },
+  { label: 'SEO Optimization', value: 'seo' },
+  { label: 'Digital Marketing', value: 'digital-marketing' },
+  { label: 'Social Media Management', value: 'social-media' },
+  { label: 'Email Marketing', value: 'email-marketing' },
+  { label: 'Copywriting', value: 'copywriting' },
+  { label: 'Business Consulting', value: 'business-consulting' },
+  { label: 'Sales Strategy', value: 'sales-strategy' },
+  { label: 'Plumbing', value: 'plumbing' },
+  { label: 'Electrical Work', value: 'electrical' },
+  { label: 'Cleaning', value: 'cleaning' },
+  { label: 'Moving Services', value: 'moving' },
+  { label: 'Handyman Services', value: 'handyman' },
+  { label: 'Pest Control', value: 'pest-control' },
+  { label: 'Landscaping', value: 'landscaping' },
+  { label: 'Tutoring', value: 'tutoring' },
+  { label: 'Language Teaching', value: 'language-teaching' },
+  { label: 'Life Coaching', value: 'life-coaching' },
+  { label: 'Career Coaching', value: 'career-coaching' },
+  { label: 'Test Preparation', value: 'test-prep' },
+  { label: 'Fitness Training', value: 'fitness-training' },
+  { label: 'Yoga Instruction', value: 'yoga' },
+  { label: 'Therapy & Counseling', value: 'therapy' },
+  { label: 'Nutrition Planning', value: 'nutrition' },
+  { label: 'Beauty & Skincare', value: 'beauty' },
+  { label: 'Hair Styling', value: 'hair-styling' },
+  { label: 'Event Planning', value: 'event-planning' },
+  { label: 'Virtual Assistance', value: 'virtual-assistance' },
+  { label: 'Data Entry', value: 'data-entry' },
+  { label: 'Translation Services', value: 'translation' },
+  { label: 'Custom Orders', value: 'custom-orders' },
 ];
 
+// Define a custom blue icon for the user
+const userIcon = new L.Icon({
+  iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-blue.png',
+  shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/0.7.7/images/marker-shadow.png',
+  iconSize: [25, 41],    // Size of the icon
+  iconAnchor: [12, 41],   // Point of the icon which will correspond to marker's location
+  popupAnchor: [1, -34],  // Point from which the popup should open relative to the iconAnchor
+  shadowSize: [41, 41]    // Size of the shadow
+});
+
+// Define the default icon for providers (optional, but good practice)
+const providerIcon = new L.Icon({
+  iconUrl: 'https://unpkg.com/leaflet@1.9.3/dist/images/marker-icon.png',
+  shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/0.7.7/images/marker-shadow.png',
+  iconSize: [25, 41],
+  iconAnchor: [12, 41],
+  popupAnchor: [1, -34],
+  shadowSize: [41, 41]
+});
+
 export default function SearchScreen() {
+  const { category: paramCategory } = useParams();
+  const [category, setCategory] = useState(paramCategory || 'All');
+  const [services, setServices] = useState([]);
+  const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [position, setPosition] = useState(null);
   const [price, setPrice] = useState(100);
   const [radius, setRadius] = useState(5);
-  const [category, setCategory] = useState('All');
+
+  const categories = predefinedCategories.some(cat => cat.value === paramCategory)
+    ? predefinedCategories
+    : paramCategory ? [...predefinedCategories, { label: paramCategory, value: paramCategory }] : predefinedCategories;
 
   useEffect(() => {
     navigator.geolocation.watchPosition(
       (position) => {
-        const { latitude, longitude, accuracy } = position.coords;
-          // Accept and use the position
-          setPosition({ lat: latitude, lng: longitude });
-        },
-      (error) => console.error('Error:', error),
+        const { latitude, longitude } = position.coords;
+        setPosition({ lat: latitude, lng: longitude });
+      },
+      (error) => console.error('Geolocation Error:', error),
       { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
     );
   }, []);
+
+  useEffect(() => {
+    setLoading(true);
+    let q;
+    if (category && category !== 'All') {
+      q = query(collection(db, 'services'), where('category', '==', category));
+    } else {
+      q = query(collection(db, 'services'));
+    }
+
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      const fetched = snapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data(),
+      }));
+      console.log(`Fetched ${fetched.length} services for category: ${category}`);
+      setServices(fetched);
+      setLoading(false);
+    }, (error) => {
+      console.error("Firestore Error:", error);
+      setLoading(false);
+    });
+
+    return () => unsubscribe();
+  }, [category]);
 
   return (
     <div className="flex flex-col h-screen">
@@ -113,11 +166,12 @@ export default function SearchScreen() {
           onChange={(e) => setCategory(e.target.value)}
           className="w-full mb-4 p-2 rounded-lg bg-white border border-gray-300"
         >
-          <option value="All">All</option>
-          <option value="Interior Designer">Interior Designer</option>
-          <option value="Personal Trainer">Personal Trainer</option>
-          <option value="Hair Stylist">Hair Stylist</option>
-          <option value="Plumber">Plumber</option>
+          <option value="All" key="all-option">All</option>
+          {categories.map((cat) => (
+            <option key={`category-${cat.value}`} value={cat.value}>
+              {cat.label}
+            </option>
+          ))}
         </select>
       </div>
 
@@ -133,7 +187,7 @@ export default function SearchScreen() {
               url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
               attribution="&copy; OpenStreetMap contributors"
             />
-            <Marker position={position} icon={L.icon({ iconUrl: 'https://unpkg.com/leaflet@1.9.3/dist/images/marker-icon.png', iconAnchor: [12, 41] })}>
+            <Marker position={position} icon={userIcon}>
               <Popup>You are here</Popup>
             </Marker>
             <Circle
@@ -141,27 +195,34 @@ export default function SearchScreen() {
               radius={radius * 1000}
               pathOptions={{ fillColor: '#CB9DF0', fillOpacity: 0.3, color: '#CB9DF0' }}
             />
-            {allProviders
-              .filter((provider)=>
-                category === 'All' || provider.service === category
+            {services
+              .filter((provider) =>
+                !searchQuery || (provider.name && provider.name.toLowerCase().includes(searchQuery.toLowerCase()))
               )
-              .map((provider) => (
-                <Marker
-                  key={provider.id}
-                  position={{
-                    lat: provider.location.latitude,
-                    lng: provider.location.longitude,
-                  }}
-                >
-                  <Popup>
-                    <div>
-                      <p className="font-semibold">{provider.name}</p>
-                      <p className="text-sm">{provider.service}</p>
-                      <p className="text-xs">Rating: {provider.rating}</p>
-                    </div>
-                  </Popup>
-                </Marker>
-              ))}
+              .map((provider) => {
+                if (!provider.location || typeof provider.location.latitude !== 'number' || typeof provider.location.longitude !== 'number') {
+                  console.warn(`Provider ${provider.name || provider.id} has invalid location data:`, provider.location);
+                  return null;
+                }
+                return (
+                  <Marker
+                    key={provider.id}
+                    position={{
+                      lat: provider.location.latitude,
+                      lng: provider.location.longitude,
+                    }}
+                    icon={providerIcon}
+                  >
+                    <Popup>
+                      <div>
+                        <p className="font-semibold">{provider.name}</p>
+                        <p className="text-sm">{provider.service || 'Service not specified'}</p>
+                        <p className="text-xs">Rating: {provider.rating || 'N/A'}</p>
+                      </div>
+                    </Popup>
+                  </Marker>
+                );
+              })}
           </MapContainer>
         ) : (
           <div className="flex justify-center items-center h-full">

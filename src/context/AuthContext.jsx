@@ -1,19 +1,27 @@
 // src/context/AuthContext.jsx
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { getAuth, onAuthStateChanged } from 'firebase/auth'; // Firebase authentication
-import { auth } from '../database/firebaseConfig'; // Your Firebase config
+import { getAuth, onAuthStateChanged } from 'firebase/auth';
+import { collection, query, where, getDocs } from 'firebase/firestore';
+import { auth, db } from '../database/firebaseConfig';
 
-// Create the AuthContext
 const AuthContext = createContext();
 
-// Create a provider component
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
-      setUser(currentUser);
+    const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
+      if (firebaseUser) {
+        const q = query(collection(db, 'users'), where('uid', '==', firebaseUser.uid));
+        const snapshot = await getDocs(q);
+        if (!snapshot.empty) {
+          const userData = snapshot.docs[0].data();
+          setUser(userData); // This includes role, username, etc.
+        }
+      } else {
+        setUser(null);
+      }
       setLoading(false);
     });
 
@@ -27,7 +35,4 @@ export const AuthProvider = ({ children }) => {
   );
 };
 
-// Custom hook to use the auth context
-export const useAuth = () => {
-  return useContext(AuthContext);
-};
+export const useAuth = () => useContext(AuthContext);

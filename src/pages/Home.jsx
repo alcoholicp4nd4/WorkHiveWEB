@@ -11,7 +11,7 @@ export default function Home() {
   const [services, setServices] = useState([]);
   const [loading, setLoading] = useState(true);
   const [currentUser, setCurrentUser] = useState(null);
-  const [categories, setCategories] = useState([
+  const [categories, setCategories] = useState([ 
     { label: 'Web Development', value: 'web-development' },
     { label: 'Mobile App Development', value: 'mobile-app-development' },
     { label: 'Software Engineering', value: 'software-engineering' },
@@ -50,6 +50,7 @@ export default function Home() {
     { label: 'Therapy & Counseling', value: 'therapy' },
     { label: 'Nutrition Planning', value: 'nutrition' },
     { label: 'Beauty & Skincare', value: 'beauty' },
+    { label: 'Hair Styling', value: 'hair-styling' },
     { label: 'Event Planning', value: 'event-planning' },
     { label: 'Virtual Assistance', value: 'virtual-assistance' },
     { label: 'Data Entry', value: 'data-entry' },
@@ -79,8 +80,7 @@ export default function Home() {
     };
     fetchUser();
   }, []);
-
-  return (
+ return (
     <div className="overflow-hidden bg-black">
       {/* Hero Section */}
       <div
@@ -102,7 +102,7 @@ export default function Home() {
           {categories.map((category) => (
             <div
               key={category.value}
-              className={`min-w-[150px] p-3 bg-black text-xl font-bold text-pink-500 border border-white rounded-xl shadow-md shadow-white ${category.disabled ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
+              className={`min-w-[150px] p-3 bg-white text-xl font-bold text-pink-500 border border-white rounded-xl shadow-md shadow-white ${category.disabled ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
               onClick={() => !category.disabled && navigate(`/search/${category.value}`)}
             >
               <h3 className="text-base font-semibold">{category.label}</h3>

@@ -42,7 +42,18 @@ export default function AdminDashboard() {
   return (
     <div style={{ padding: 20 }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <h2>Admin Dashboard</h2>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 20 }}>
+          <h2>Admin Dashboard</h2>
+          <a href="/admin-reports" style={{
+            padding: '8px 12px',
+            background: '#6366f1',
+            color: 'white',
+            borderRadius: '5px',
+            textDecoration: 'none'
+          }}>
+            Reports
+          </a>
+        </div>
         <div style={{ textAlign: 'right' }}>
           <input
             type="text"
@@ -67,8 +78,6 @@ export default function AdminDashboard() {
             <p>Role: {user.role || 'user'}</p>
             <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
               <button onClick={() => updateUserRole(user.id, 'admin', user.isProvider)} style={buttonStyle('#0ea5e9')}>Make Admin</button>
-              <button onClick={() => updateUserRole(user.id, user.role || 'user', true)} style={buttonStyle('#10b981')}>Make Provider</button>
-              <button onClick={() => updateUserRole(user.id, user.role || 'user', false)} style={buttonStyle('#f59e0b')}>Revoke Provider</button>
               <button onClick={() => deleteUser(user.id)} style={buttonStyle('#ef4444')}>Delete</button>
             </div>
           </div>
