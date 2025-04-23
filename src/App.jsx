@@ -15,6 +15,7 @@ import ServiceDetailsScreen from './pages/ServiceDetailsScreen';
 import ChatScreen from './pages/Chatscreen';
 import AddServiceScreen from './pages/AddServiceScreen';
 import AdminDashboard from './pages/AdminDashboard';
+import AdminReports from './pages/AdminReports';
 
 const AdminRoute = ({ children }) => {
   const userData = JSON.parse(localStorage.getItem('loggedInUser'));
@@ -91,6 +92,17 @@ function App() {
                 </PrivateRoute>
               }
             />
+            <Route
+  path="/admin-reports"
+  element={
+    <PrivateRoute>
+      <AdminRoute>
+        <AdminReports />
+      </AdminRoute>
+    </PrivateRoute>
+  }
+/>
+
           </Routes>
         </div>
       </Router>
