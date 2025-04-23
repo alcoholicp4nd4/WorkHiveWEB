@@ -81,7 +81,7 @@ export default function Home() {
     fetchUser();
   }, []);
  return (
-    <div className="overflow-hidden bg-black">
+    <div className="overflow-hidden bg-white">
       {/* Hero Section */}
       <div
         className="h-[400px] bg-cover bg-center flex flex-col justify-center items-center text-white px-4"
@@ -97,15 +97,15 @@ export default function Home() {
 
       {/* Categories Section */}
       <section className="px-5 py-8">
-        <h2 className="text-2xl font-bold mb-4 text-white">Filter by Category</h2>
+        <h2 className="text-2xl font-bold mb-4 text-black">Filter by Category</h2>
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
           {categories.map((category) => (
             <div
               key={category.value}
-              className={`min-w-[150px] p-3 bg-white text-xl font-bold text-pink-500 border border-white rounded-xl shadow-md shadow-white ${category.disabled ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
+              className={`min-w-[150px] p-3 bg-[#FFF9BF] text-xl font-bold text-black border border-gray-300 rounded-xl shadow-md ${category.disabled ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
               onClick={() => !category.disabled && navigate(`/search/${category.value}`)}
             >
-              <h3 className="text-base font-semibold">{category.label}</h3>
+              <h3 className="text-base font-semibold text-center">{category.label}</h3>
             </div>
           ))}
         </div>
@@ -113,11 +113,11 @@ export default function Home() {
 
       {/* Services Section */}
       <section className="px-5 pb-10">
-        <h2 className="text-2xl font-bold mb-4 text-white">Featured Providers</h2>
+        <h2 className="text-2xl font-bold mb-4 text-black">Featured Providers</h2>
         {loading ? (
-          <p className="text-white">Loading services...</p>
+          <p className="text-black">Loading services...</p>
         ) : services.length === 0 ? (
-          <p className="text-white">No providers found.</p>
+          <p className="text-black">No providers found.</p>
         ) : (
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
             {services.map((service) => (
@@ -130,7 +130,7 @@ export default function Home() {
                     alert("Please log in to start a chat.");
                   }
                 }}
-                className="flex bg-black text-xl font-bold text-pink-500 border border-white rounded-xl shadow-md shadow-white p-4 mb-4 cursor-pointer"
+                className="flex bg-[#CB9DF0] text-xl font-bold text-white border border-gray-300 rounded-xl shadow-md p-4 mb-4 cursor-pointer"
               >
                 <div className="flex-1">
                   <h3 className="text-lg font-semibold">{service.title}</h3>
