@@ -17,6 +17,7 @@ export default function ChatScreen() {
   const { currentUserId, providerId } = useParams(); // ✅ Get from URL like /chat/:currentUserId/:providerId
   const [messages, setMessages] = useState([]);
   const [newMessage, setNewMessage] = useState('');
+  const [otherUserName, setOtherUserName] = useState('');
 
   const conversationId = [currentUserId, providerId].sort().join('_');
   const messagesRef = collection(db, 'conversations', conversationId, 'messages');
@@ -44,6 +45,19 @@ export default function ChatScreen() {
     return () => unsubscribe();
   }, [conversationId]);
 
+  useEffect(() => {
+    const fetchOtherUserName = async () => {
+      const userDoc = await getDoc(doc(db, 'users', providerId));
+      if (userDoc.exists()) {
+        setOtherUserName(userDoc.data().username || "Service Provider");
+      } else {
+        setOtherUserName("Service Provider"); // Fallback if user does not exist
+      }
+    };
+
+    fetchOtherUserName();
+  }, [providerId]);
+
   const handleSend = async () => {
     if (!newMessage.trim()) return;
     await addDoc(messagesRef, {
@@ -56,6 +70,14 @@ export default function ChatScreen() {
 
   return (
     <div className="flex flex-col h-screen bg-purple-100 p-4">
+      {/* Header with Other User's Name and Status */}
+      <div className="flex items-center mb-4 bg-white p-2 rounded-lg shadow">
+        <div className="flex items-center">
+          <div className="w-3 h-3 bg-green-500 rounded-full mr-2"></div> {/* Green dot for status */}
+          <h2 className="text-lg font-bold">{otherUserName}</h2>
+        </div>
+      </div>
+
       <div className="flex-1 overflow-y-auto">
         {messages.map((item) => (
           <div key={item.id} className={`p-2 my-1 rounded-lg max-w-xs ${item.senderId === currentUserId ? 'bg-purple-400 self-end' : 'bg-yellow-400 self-start'}`}>
