@@ -15,6 +15,7 @@ import ServiceDetailsScreen from './pages/ServiceDetailsScreen';
 import ChatScreen from './pages/Chatscreen';
 import AddServiceScreen from './pages/AddServiceScreen';
 import AdminDashboard from './pages/AdminDashboard';
+import ProviderBookingsScreen from './pages/ProviderBookingScreen'; 
 
 const AdminRoute = ({ children }) => {
   const userData = JSON.parse(localStorage.getItem('loggedInUser'));
@@ -66,10 +67,18 @@ function App() {
               }
             />
             <Route
-              path="/serviceDetails"
+              path="/serviceDetails/:providerId"
               element={
                 <PrivateRoute>
                   <ServiceDetailsScreen />
+                </PrivateRoute>
+              }
+            />
+            <Route
+              path="/ProviderBookingScreen/:providerId"
+              element={
+                <PrivateRoute>
+                  <ProviderBookingsScreen />
                 </PrivateRoute>
               }
             />

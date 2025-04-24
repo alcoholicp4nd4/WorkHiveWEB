@@ -125,9 +125,9 @@ export default function Home() {
                 key={service.id}
                 onClick={() => {
                   if (currentUser) {
-                    navigate(`/chatscreen/${currentUser.uid}/${service.id}`);
+                    navigate(`/ServiceDetails/${service.id}`);
                   } else {
-                    alert("Please log in to start a chat.");
+                    alert("Please log in to look at their account.");
                   }
                 }}
                 className="flex bg-[#CB9DF0] text-xl font-bold text-white border border-gray-300 rounded-xl shadow-md p-4 mb-4 cursor-pointer"
