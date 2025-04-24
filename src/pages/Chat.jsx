@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { collection, getDocs, query, where } from 'firebase/firestore';
+import { collection, getDocs, query } from 'firebase/firestore';
 import { db } from '../database/firebaseConfig';
 import { getCurrentUser } from '../database/authDatabase'; // Ensure this is implemented
 
@@ -12,7 +12,7 @@ export default function Chat() {
   useEffect(() => {
     const fetchProviders = async () => {
       try {
-        const q = query(collection(db, 'users'), where('isProvider', '==', true));
+        const q = query(collection(db, 'users'));
         const snapshot = await getDocs(q);
         const fetched = snapshot.docs.map((doc) => ({
           id: doc.id,
@@ -55,8 +55,8 @@ export default function Chat() {
           <div className="space-y-4">
             {providers.map((provider) => (
               <div
-                key={provider.uid}
-                onClick={() => handleChatClick(provider.uid)}
+                key={provider.id}
+                onClick={() => handleChatClick(provider.id)}
                 className="cursor-pointer flex items-center p-4 bg-white rounded-xl shadow-sm hover:shadow-md transition"
               >
                 <div className="flex-1">

@@ -131,7 +131,11 @@ const ServiceDetailsScreen = () => {
         <Carousel showThumbs={false} className="mb-6 rounded-xl overflow-hidden">
           {service.images.map((url, index) => (
             <div key={index}>
-              <img src={url} alt={`Service ${index}`} className="object-cover h-64 w-full" />
+              <img 
+                src={url} 
+                alt={`Service ${index}`} 
+                className="h-full w-full object-contain"
+              />
             </div>
           ))}
         </Carousel>
