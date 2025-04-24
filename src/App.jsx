@@ -16,6 +16,8 @@ import ChatScreen from './pages/Chatscreen';
 import AddServiceScreen from './pages/AddServiceScreen';
 import AdminDashboard from './pages/AdminDashboard';
 import AdminReports from './pages/AdminReports';
+import AdminAnalytics from './pages/AdminAnalytics';
+import AdminUserDetails from './pages/AdminUserDetails';
 
 const AdminRoute = ({ children }) => {
   const userData = JSON.parse(localStorage.getItem('loggedInUser'));
@@ -98,6 +100,26 @@ function App() {
     <PrivateRoute>
       <AdminRoute>
         <AdminReports />
+      </AdminRoute>
+    </PrivateRoute>
+  }
+/>
+<Route
+  path="/admin-analytics"
+  element={
+    <PrivateRoute>
+      <AdminRoute>
+      <AdminAnalytics />
+      </AdminRoute>
+    </PrivateRoute>
+  }
+/>
+<Route
+  path="/admin-user/:userId"
+  element={
+    <PrivateRoute>
+      <AdminRoute>
+        <AdminUserDetails />
       </AdminRoute>
     </PrivateRoute>
   }

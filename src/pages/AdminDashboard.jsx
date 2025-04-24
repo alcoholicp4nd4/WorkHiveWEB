@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { collection, deleteDoc, doc, getDocs, updateDoc } from 'firebase/firestore';
+import { Link } from 'react-router-dom'; // ✅ Add this!
 import { db } from '../database/firebaseConfig';
 
 export default function AdminDashboard() {
@@ -53,7 +54,18 @@ export default function AdminDashboard() {
           }}>
             Reports
           </a>
+
+          <a href="/admin-analytics" style={{
+            padding: '8px 12px',
+            background: '#4f46e5',
+            color: 'white',
+            borderRadius: '5px',
+            textDecoration: 'none'
+          }}>
+            Analytics
+          </a>
         </div>
+
         <div style={{ textAlign: 'right' }}>
           <input
             type="text"
@@ -77,8 +89,17 @@ export default function AdminDashboard() {
             <p>{user.email}</p>
             <p>Role: {user.role || 'user'}</p>
             <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
-              <button onClick={() => updateUserRole(user.id, 'admin', user.isProvider)} style={buttonStyle('#0ea5e9')}>Make Admin</button>
-              <button onClick={() => deleteUser(user.id)} style={buttonStyle('#ef4444')}>Delete</button>
+              <button onClick={() => updateUserRole(user.id, 'admin', user.isProvider)} style={buttonStyle('#0ea5e9')}>
+                Make Admin
+              </button>
+              <button onClick={() => deleteUser(user.id)} style={buttonStyle('#ef4444')}>
+                Delete
+              </button>
+              <Link to={`/admin-user/${user.id}`}>
+                <button style={buttonStyle('#6366f1')}>
+                  Details
+                </button>
+              </Link>
             </div>
           </div>
         ))}

@@ -5,10 +5,13 @@ import { db } from '../database/firebaseConfig';
 
 export default function AdminReports() {
   const [reports, setReports] = useState([]);
+  const [users, setUsers] = useState({});
   const [loading, setLoading] = useState(true);
+  const [searchTerm, setSearchTerm] = useState(''); // ✅ Search term
 
   useEffect(() => {
     fetchReports();
+    fetchUsers();
   }, []);
 
   const fetchReports = async () => {
@@ -16,6 +19,15 @@ export default function AdminReports() {
     const fetchedReports = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
     setReports(fetchedReports);
     setLoading(false);
+  };
+
+  const fetchUsers = async () => {
+    const snapshot = await getDocs(collection(db, 'users'));
+    const usersMap = {};
+    snapshot.forEach(doc => {
+      usersMap[doc.id] = doc.data().username || 'Unknown User';
+    });
+    setUsers(usersMap);
   };
 
   const banProvider = async (providerId) => {
@@ -31,25 +43,45 @@ export default function AdminReports() {
     fetchReports();
   };
 
-  // Count reports per provider
   const reportCounts = reports.reduce((acc, report) => {
     acc[report.providerId] = (acc[report.providerId] || 0) + 1;
     return acc;
   }, {});
 
+  // ✅ Filtered reports
+  const filteredReports = reports.filter((report) => {
+    const reporter = users[report.reporterId] || 'Unknown User';
+    const provider = users[report.providerId] || 'Unknown User';
+    const combined = `${reporter} ${provider} ${report.issueType || ''} ${report.status || ''}`;
+    return combined.toLowerCase().includes(searchTerm.toLowerCase());
+  });
+
   return (
     <div style={{ padding: 20 }}>
       <h2 style={{ fontSize: 24, marginBottom: 20 }}>User Reports</h2>
+
+      {/* ✅ Search input */}
+      <div style={{ marginBottom: 20 }}>
+        <input
+          type="text"
+          placeholder="Search reports..."
+          value={searchTerm}
+          onChange={(e) => setSearchTerm(e.target.value)}
+          style={{ padding: 10, borderRadius: 5, width: '100%', maxWidth: 300 }}
+        />
+      </div>
+
       {loading ? (
         <p>Loading reports...</p>
-      ) : reports.length === 0 ? (
+      ) : filteredReports.length === 0 ? (
         <p>No reports available.</p>
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
-          {reports.map((report) => (
+          {filteredReports.map((report) => (
             <div key={report.id} style={{ background: '#f1f5f9', padding: 15, borderRadius: 8 }}>
               <h3 style={{ marginBottom: 4 }}>Issue Type: {report.issueType}</h3>
-              <p><strong>Provider ID:</strong> {report.providerId}</p>
+              <p><strong>Reporter:</strong> {users[report.reporterId] || 'Unknown User'}</p>
+              <p><strong>Provider:</strong> {users[report.providerId] || report.providerId}</p>
               <p><strong>Service ID:</strong> {report.serviceId}</p>
               <p><strong>Booking ID:</strong> {report.bookingId}</p>
               <p><strong>Description:</strong> {report.description}</p>
