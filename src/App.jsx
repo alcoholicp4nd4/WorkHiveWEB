@@ -70,7 +70,7 @@ function App() {
               }
             />
             <Route
-              path="/serviceDetails/:providerId"
+              path="/serviceDetails/:serviceId"
               element={
                 <PrivateRoute>
                   <ServiceDetailsScreen />

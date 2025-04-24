@@ -1,165 +1,180 @@
-import React, { useEffect, useState } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
-import { db } from '../database/firebaseConfig';
+import React, { useEffect, useState } from "react";
+import { useNavigate, useParams, useLocation } from "react-router-dom";
+import { auth, db } from "../database/firebaseConfig";
 import {
+  doc,
+  getDoc,
   collection,
   addDoc,
-  serverTimestamp,
   query,
   where,
   getDocs,
-  doc,
-  getDoc,
-} from 'firebase/firestore';
-import { getAuth } from 'firebase/auth';
-import { sendNotification } from '../utils/notificationUtils';
-import ServiceRating from '../components/ServiceRating';
-import FavoriteButton from '../components/FavoriteButton';
+  serverTimestamp,
+} from "firebase/firestore";
+import { onAuthStateChanged } from "firebase/auth";
+import FavoriteButton from "../components/FavoriteButton";
+import ServiceRating from "../components/ServiceRating";
+import { Carousel } from "react-responsive-carousel";
+import "react-responsive-carousel/lib/styles/carousel.min.css";
+import toast from "react-hot-toast";
 
-export default function ServiceDetails() {
+const ServiceDetailsScreen = () => {
   const { serviceId } = useParams();
-  const navigate = useNavigate();
   const [service, setService] = useState(null);
-  const auth = getAuth();
-  const currentUser = auth.currentUser;
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+  const [currentUser, setCurrentUser] = useState(null);
+  const [ownerName, setOwnerName] = useState("");
+  const navigate = useNavigate();
+  const location = useLocation();
+
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, (user) => {
+      setCurrentUser(user);
+    });
+    return () => unsubscribe();
+  }, []);
 
   useEffect(() => {
     const fetchService = async () => {
-      const docRef = doc(db, 'services', serviceId);
-      const docSnap = await getDoc(docRef);
-      if (docSnap.exists()) {
-        setService({ id: docSnap.id, ...docSnap.data() });
+      console.log("Service ID:", serviceId);
+
+      if (!serviceId) {
+        setError("Invalid Service ID provided.");
+        setLoading(false);
+        return;
+      }
+
+      try {
+        const docRef = doc(db, "services", serviceId);
+        const docSnap = await getDoc(docRef);
+        if (docSnap.exists()) {
+          const serviceData = { id: docSnap.id, ...docSnap.data() };
+          setService(serviceData);
+
+          // Fetch owner's name
+          if (serviceData.userId) {
+            const userRef = doc(db, "users", serviceData.userId);
+            const userSnap = await getDoc(userRef);
+            if (userSnap.exists()) {
+              setOwnerName(userSnap.data().username || "Service Provider");
+            }
+          }
+        } else {
+          setError("Service not found.");
+        }
+      } catch (err) {
+        setError("Failed to load service details. Please try again later.");
+        console.error("Fetch error:", err);
+      } finally {
+        setLoading(false);
       }
     };
+
     fetchService();
   }, [serviceId]);
 
   const handleBookService = async () => {
-    if (!service?.userId) return alert('Service provider ID is missing.');
+    if (!currentUser) {
+      toast.error("Please log in to book a service.");
+      navigate("/login", { state: { from: location.pathname } });
+      return;
+    }
 
-    if (currentUser?.uid === service.userId) {
-      alert('You cannot book your own service.');
+    if (currentUser.uid === service?.userId) {
+      toast.error("You can't book your own service.");
       return;
     }
 
     try {
-      const bookingsRef = collection(db, 'bookings');
+      const bookingsRef = collection(db, "bookings");
       const q = query(
         bookingsRef,
-        where('serviceId', '==', service.id),
-        where('userId', '==', currentUser.uid)
+        where("serviceId", "==", serviceId),
+        where("userId", "==", currentUser.uid),
+        where("status", "==", "active")
       );
       const querySnapshot = await getDocs(q);
-
       if (!querySnapshot.empty) {
-        const existingBooking = querySnapshot.docs[0].data();
-        if (existingBooking.status !== 'completed') {
-          alert('You have already booked this service.');
-          return;
-        }
+        toast.error("You have already booked this service.");
+        return;
       }
 
-      await sendNotification(
-        service.userId,
-        'booking',
-        `You have a new booking for "${service.title}".`
-      );
-
-      await addDoc(bookingsRef, {
-        serviceId: service.id,
-        providerId: service.userId,
+      const newBooking = {
+        serviceId,
         userId: currentUser.uid,
-        status: 'pending',
+        status: "active",
         createdAt: serverTimestamp(),
-      });
-
-      alert('Service booked successfully!');
-    } catch (error) {
-      console.error('Booking error:', error);
-      alert('Failed to book the service.');
+      };
+      await addDoc(bookingsRef, newBooking);
+      toast.success("Service booked successfully! Check 'My Bookings' to track it.");
+    } catch (err) {
+      toast.error("Failed to book service. Please try again.");
+      console.error("Booking error:", err);
     }
   };
 
-  if (!service) return <div className="p-4">Loading...</div>;
+  if (loading) return <div className="text-center py-10">Loading service details...</div>;
+  if (error) return <div className="text-center text-red-600 py-10">{error}</div>;
+  if (!service) return <div className="text-center text-gray-500 py-10">No service data available.</div>;
 
   return (
-    <div className="bg-white min-h-screen">
+    <div className="max-w-4xl mx-auto p-6 bg-white rounded-xl shadow-lg">
       <button
         onClick={() => navigate(-1)}
-        className="fixed top-4 left-4 bg-white/90 px-4 py-2 rounded-full shadow-md z-50"
+        className="text-blue-500 hover:text-blue-700 mb-4 underline"
       >
-        ← Back
+        &larr; Back
       </button>
 
-      <div className="w-full overflow-x-auto flex">
-        {service.images?.length > 0 ? (
-          service.images.map((url, idx) => (
-            <img
-              key={idx}
-              src={url}
-              alt={`service-${idx}`}
-              className="w-screen h-[250px] object-cover"
-            />
-          ))
-        ) : (
-          <img
-            src="https://via.placeholder.com/300"
-            className="w-screen h-[250px] object-cover"
-            alt="placeholder"
-          />
-        )}
-      </div>
+      {service.images?.length > 0 && (
+        <Carousel showThumbs={false} className="mb-6 rounded-xl overflow-hidden">
+          {service.images.map((url, index) => (
+            <div key={index}>
+              <img src={url} alt={`Service ${index}`} className="object-cover h-64 w-full" />
+            </div>
+          ))}
+        </Carousel>
+      )}
 
-      <div className="p-5 space-y-4">
-        <h1 className="text-2xl font-bold text-gray-800">{service.title}</h1>
-        <div className="flex justify-between items-center -mt-1">
-          <p className="text-sm text-gray-600">by {service.username}</p>
-          <FavoriteButton serviceId={service.id} />
-        </div>
-        <p className="text-sm text-purple-500 font-medium">
-          Category: {service.category}
-        </p>
+      <h1 className="text-3xl font-bold text-gray-800 mb-2">{service.title}</h1>
+      <p className="text-gray-500 italic mb-2">Offered by: {ownerName}</p>
+      <p className="text-gray-600 mb-4">{service.description}</p>
+      <p className="text-lg text-gray-700 font-semibold mb-2">
+        Price:{" "}
+        <span className="text-green-600">
+          {new Intl.NumberFormat("en-US", {
+            style: "currency",
+            currency: "USD",
+          }).format(service.price || 0)}
+        </span>
+      </p>
 
-        <ServiceRating serviceId={service.id} readOnly={true} />
-
-        <div>
-          <h2 className="text-base font-semibold text-gray-700 mb-1">
-            Description
-          </h2>
-          <p className="text-sm text-gray-700 leading-relaxed">
-            {service.description}
-          </p>
-        </div>
-
-        <div className="flex justify-between items-center py-2">
-          <p className="text-lg font-semibold text-gray-800">
-            {service.priceType === 'hourly'
-              ? `$${service.price}/hr`
-              : `$${service.price}`}
-          </p>
-          <p className="text-sm text-gray-600">⏱️ {service.deliveryTime}</p>
-        </div>
-
-        <button className="w-full bg-purple-400 text-white font-semibold py-3 rounded-xl shadow-md mb-2">
-          💬 Contact Provider
-        </button>
-
+      {currentUser && currentUser.uid !== service.userId && (
         <button
-          className="w-full bg-purple-100 text-purple-700 font-semibold py-3 rounded-xl"
           onClick={handleBookService}
+          className="bg-blue-500 text-white px-5 py-2 rounded-lg hover:bg-blue-600 transition mb-4"
         >
-          📦 Book Service
+          Book Service
         </button>
+      )}
 
+      {/* New Chat Button */}
+      {currentUser && (
         <button
-          onClick={() =>
-            navigate(`/profile/${service.userId}`)
-          }
-          className="w-full mt-4 bg-indigo-600 text-white font-bold py-2 rounded-md"
+          onClick={() => navigate(`/chatscreen/${currentUser.uid}/${serviceId}`)}
+          className="bg-green-500 text-white px-5 py-2 rounded-lg hover:bg-green-600 transition mb-4"
         >
-          View Provider Profile
+          Chat with Provider
         </button>
+      )}
+
+      <div className="flex items-center space-x-4">
+        <ServiceRating serviceId={serviceId} />
+        {currentUser && <FavoriteButton serviceId={serviceId} userId={currentUser.uid} />}
       </div>
     </div>
   );
-}
+};
+
+export default ServiceDetailsScreen;
