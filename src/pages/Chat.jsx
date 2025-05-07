@@ -18,6 +18,7 @@ export default function Chat() {
           id: doc.id,
           ...doc.data(),
         }));
+        console.log(fetched); // Log the fetched provider data for debugging
         setProviders(fetched);
       } catch (err) {
         console.error('❌ Firestore fetch error:', err);
@@ -35,12 +36,7 @@ export default function Chat() {
 
   const handleChatClick = (providerId) => {
     if (currentUser) {
-      navigate('/chat', {
-        state: {
-          currentUserId: currentUser.uid,
-          providerId,
-        },
-      });
+      navigate(`/chatscreen/${currentUser.uid}/${providerId}`);
     }
   };
 
@@ -59,6 +55,11 @@ export default function Chat() {
                 onClick={() => handleChatClick(provider.id)}
                 className="cursor-pointer flex items-center p-4 bg-white rounded-xl shadow-sm hover:shadow-md transition"
               >
+                <img
+                  src={provider.profilePic || 'https://via.placeholder.com/50'}
+                  alt={provider.username}
+                  className="w-12 h-12 rounded-full mr-4"
+                />
                 <div className="flex-1">
                   <h2 className="text-lg font-semibold text-gray-800">{provider.username}</h2>
                   <p className="text-sm text-gray-500">Service Provider</p>

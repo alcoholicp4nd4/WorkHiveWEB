@@ -120,6 +120,9 @@ const styles = {
     textAlign: 'center',
   },
   listContainer: {
+    display: 'grid',
+    gridTemplateColumns: 'repeat(auto-fill, minmax(350px, 1fr))',
+    gap: '15px',
     padding: '15px',
   },
   serviceCard: {
@@ -128,10 +131,11 @@ const styles = {
     marginBottom: '15px',
     boxShadow: '0 2px 4px rgba(0, 0, 0, 0.1)',
     cursor: 'pointer',
+    minHeight: '300px',
   },
   serviceImage: {
     width: '100%',
-    height: '200px',
+    height: '250px',
     borderTopLeftRadius: '10px',
     borderTopRightRadius: '10px',
     objectFit: 'cover',
