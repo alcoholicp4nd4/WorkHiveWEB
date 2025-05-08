@@ -36,7 +36,7 @@ export default function Navbar() {
 
             <div className="hidden sm:flex space-x-2">
               <Link to="/" className={linkStyle('/')}>Home</Link>
-              <Link to="/search/NULL" className={linkStyle('/search/NULL')}>Search</Link>
+              <Link to="/search/NULL" className={linkStyle('/search/All')}>Search</Link>
 
               {user && (
                 <>

@@ -89,14 +89,68 @@ export default function SearchScreen() {
     : paramCategory ? [...predefinedCategories, { label: paramCategory, value: paramCategory }] : predefinedCategories;
 
   useEffect(() => {
-    navigator.geolocation.watchPosition(
+    let watchId;
+
+    const getLocation = () => {
+      const options = {
+        enableHighAccuracy: true, // Use high accuracy mode
+        timeout: 10000,          // Timeout after 10 seconds
+        maximumAge: 0            // Don't use cached position
+      };
+
+      watchId = navigator.geolocation.watchPosition(
+        (position) => {
+          const { latitude, longitude, accuracy } = position.coords;
+          console.log(`Location updated - Accuracy: ${accuracy} meters`);
+          setPosition({ lat: latitude, lng: longitude });
+        },
+        (error) => {
+          console.error('Geolocation Error:', error);
+          switch(error.code) {
+            case error.PERMISSION_DENIED:
+              console.error('Location permission denied');
+              break;
+            case error.POSITION_UNAVAILABLE:
+              console.error('Location information unavailable');
+              break;
+            case error.TIMEOUT:
+              console.error('Location request timed out');
+              break;
+            default:
+              console.error('Unknown error occurred');
+          }
+        },
+        options
+      );
+    };
+
+    // Try to get initial position
+    navigator.geolocation.getCurrentPosition(
       (position) => {
-        const { latitude, longitude } = position.coords;
+        const { latitude, longitude, accuracy } = position.coords;
+        console.log(`Initial position - Accuracy: ${accuracy} meters`);
         setPosition({ lat: latitude, lng: longitude });
+        // Start watching position after getting initial position
+        getLocation();
       },
-      (error) => console.error('Geolocation Error:', error),
-      { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+      (error) => {
+        console.error('Initial position error:', error);
+        // Still try to watch position even if initial position fails
+        getLocation();
+      },
+      {
+        enableHighAccuracy: true,
+        timeout: 10000,
+        maximumAge: 0
+      }
     );
+
+    // Cleanup function to stop watching position
+    return () => {
+      if (watchId) {
+        navigator.geolocation.clearWatch(watchId);
+      }
+    };
   }, []);
 
   useEffect(() => {
