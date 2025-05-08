@@ -1,7 +1,6 @@
-// src/pages/AdminUserDetails.jsx
 import React, { useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
-import { collection, getDocs, query, where } from 'firebase/firestore';
+import { collection, getDocs, query, where, updateDoc, doc } from 'firebase/firestore';
 import { db } from '../database/firebaseConfig';
 
 export default function AdminUserDetails() {
@@ -11,31 +10,61 @@ export default function AdminUserDetails() {
   const [ratings, setRatings] = useState([]);
   const [reports, setReports] = useState([]);
   const [conversations, setConversations] = useState([]);
+  const [userMap, setUserMap] = useState({});
+  const [serviceMap, setServiceMap] = useState({});
+  const [allServices, setAllServices] = useState([]); // include all for lookup
 
   useEffect(() => {
     fetchAllDetails();
   }, []);
 
   const fetchAllDetails = async () => {
-    const servicesQuery = query(collection(db, 'services'), where('userId', '==', userId));
-    const servicesSnap = await getDocs(servicesQuery);
-    setServices(servicesSnap.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+    // Build user map with both doc ID and UID
+    const usersSnap = await getDocs(collection(db, 'users'));
+    const userMapTemp = {};
+    usersSnap.forEach(doc => {
+      const data = doc.data();
+      userMapTemp[doc.id] = data.username || 'Unknown'; // Firestore doc ID
+      if (data.uid) {
+        userMapTemp[data.uid] = data.username || 'Unknown'; // Firebase auth UID
+      }
+    });
+    setUserMap(userMapTemp);
 
-    const favoritesQuery = query(collection(db, 'favorites'), where('userId', '==', userId));
-    const favoritesSnap = await getDocs(favoritesQuery);
+    // Get all services and build serviceMap
+    const servicesSnap = await getDocs(collection(db, 'services'));
+    const serviceMapTemp = {};
+    const relatedServices = [];
+    const allServiceObjs = [];
+
+    servicesSnap.forEach(doc => {
+      const data = doc.data();
+      const serviceObj = { id: doc.id, ...data };
+      allServiceObjs.push(serviceObj);
+      serviceMapTemp[doc.id] = data.title || 'Unknown Service';
+      if (data.userId === userId) relatedServices.push(serviceObj);
+    });
+
+    setServiceMap(serviceMapTemp);
+    setServices(relatedServices);
+    setAllServices(allServiceObjs); // needed to lookup provider of any rated service
+
+    const favoritesSnap = await getDocs(query(collection(db, 'favorites'), where('userId', '==', userId)));
     setFavorites(favoritesSnap.docs.map(doc => ({ id: doc.id, ...doc.data() })));
 
-    const ratingsQuery = query(collection(db, 'ratings'), where('receiverId', '==', userId));
-    const ratingsSnap = await getDocs(ratingsQuery);
+    const ratingsSnap = await getDocs(query(collection(db, 'ratings'), where('userId', '==', userId)));
     setRatings(ratingsSnap.docs.map(doc => ({ id: doc.id, ...doc.data() })));
 
-    const reportsQuery = query(collection(db, 'reports'), where('providerId', '==', userId));
-    const reportsSnap = await getDocs(reportsQuery);
+    const reportsSnap = await getDocs(query(collection(db, 'reports'), where('providerId', '==', userId)));
     setReports(reportsSnap.docs.map(doc => ({ id: doc.id, ...doc.data() })));
 
-    const convQuery = query(collection(db, 'conversations'), where('participants', 'array-contains', userId));
-    const convSnap = await getDocs(convQuery);
+    const convSnap = await getDocs(query(collection(db, 'conversations'), where('participants', 'array-contains', userId)));
     setConversations(convSnap.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+  };
+
+  const banUser = async () => {
+    await updateDoc(doc(db, 'users', userId), { banned: true });
+    alert('User has been banned.');
   };
 
   const sectionStyle = { marginBottom: 20 };
@@ -45,6 +74,7 @@ export default function AdminUserDetails() {
     <div style={{ padding: 20 }}>
       <h2>User Details Page</h2>
       <p><strong>User ID:</strong> {userId}</p>
+      <button onClick={banUser} style={{ marginBottom: 20, background: '#dc2626', color: 'white', padding: 10, border: 'none', borderRadius: 5 }}>Ban User</button>
 
       <div style={sectionStyle}>
         <h3>Services</h3>
@@ -67,7 +97,7 @@ export default function AdminUserDetails() {
         {favorites.length > 0 ? (
           favorites.map(fav => (
             <div key={fav.id} style={itemStyle}>
-              <p><strong>Service ID:</strong> {fav.serviceId}</p>
+              <p><strong>Service:</strong> {serviceMap[fav.serviceId] || fav.serviceId}</p>
               <hr />
             </div>
           ))
@@ -77,14 +107,18 @@ export default function AdminUserDetails() {
       <div style={sectionStyle}>
         <h3>Ratings</h3>
         {ratings.length > 0 ? (
-          ratings.map(rating => (
-            <div key={rating.id} style={itemStyle}>
-              <p><strong>From:</strong> {rating.senderId}</p>
-              <p><strong>Score:</strong> {rating.score}</p>
-              <p><strong>Comment:</strong> {rating.comment}</p>
-              <hr />
-            </div>
-          ))
+          ratings.map(rating => {
+            const serviceTitle = serviceMap[rating.serviceId] || 'Unknown service';
+            const fullService = allServices.find(s => s.id === rating.serviceId);
+            const providerName = fullService ? (userMap[fullService.userId] || fullService.userId) : 'Unknown';
+            return (
+              <div key={rating.id} style={itemStyle}>
+                <p><strong>Service:</strong> {serviceTitle} (by {providerName})</p>
+                <p><strong>Score:</strong> {rating.rating}</p>
+                <hr />
+              </div>
+            );
+          })
         ) : <p>No ratings.</p>}
       </div>
 
@@ -107,7 +141,7 @@ export default function AdminUserDetails() {
         {conversations.length > 0 ? (
           conversations.map(conv => (
             <div key={conv.id} style={itemStyle}>
-              <p><strong>Participants:</strong> {conv.participants.join(', ')}</p>
+              <p><strong>Participants:</strong> {conv.participants.map(pid => userMap[pid] || 'Deleted User').join(', ')}</p>
               <hr />
             </div>
           ))
