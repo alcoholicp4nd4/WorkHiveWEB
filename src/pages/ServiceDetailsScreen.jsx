@@ -6,9 +6,10 @@ import {
   getDoc,
   collection,
   addDoc,
+  setDoc,
+  getDocs,
   query,
   where,
-  getDocs,
   serverTimestamp,
 } from "firebase/firestore";
 import { onAuthStateChanged } from "firebase/auth";
@@ -37,8 +38,6 @@ const ServiceDetailsScreen = () => {
 
   useEffect(() => {
     const fetchService = async () => {
-      console.log("Service ID:", serviceId);
-
       if (!serviceId) {
         setError("Invalid Service ID provided.");
         setLoading(false);
@@ -52,7 +51,6 @@ const ServiceDetailsScreen = () => {
           const serviceData = { id: docSnap.id, ...docSnap.data() };
           setService(serviceData);
 
-          // Fetch owner's name
           if (serviceData.userId) {
             const userRef = doc(db, "users", serviceData.userId);
             const userSnap = await getDoc(userRef);
@@ -64,8 +62,8 @@ const ServiceDetailsScreen = () => {
           setError("Service not found.");
         }
       } catch (err) {
-        setError("Failed to load service details. Please try again later.");
-        console.error("Fetch error:", err);
+        setError("Failed to load service details.");
+        console.error(err);
       } finally {
         setLoading(false);
       }
@@ -82,8 +80,7 @@ const ServiceDetailsScreen = () => {
     }
 
     if (!service || !service.userId) {
-      toast.error("Service details are not fully loaded. Please try again.");
-      console.error("Booking attempt with incomplete service data:", service);
+      toast.error("Service data incomplete.");
       return;
     }
 
@@ -98,50 +95,75 @@ const ServiceDetailsScreen = () => {
         bookingsRef,
         where("serviceId", "==", serviceId),
         where("userId", "==", currentUser.uid),
-        where("status", "in", ["active", "pending"]) // Check for active or pending bookings
+        where("status", "in", ["active", "pending"])
       );
-      const querySnapshot = await getDocs(q);
-      if (!querySnapshot.empty) {
-        toast.error("You have already booked this service or a booking is pending.");
+      const snapshot = await getDocs(q);
+      if (!snapshot.empty) {
+        toast.error("You already booked this service.");
         return;
       }
 
       const newBooking = {
         serviceId,
         userId: currentUser.uid,
-        providerId: service.userId, // Store providerId for easier lookup later if needed
-        serviceTitle: service.title, // Store service title for display in bookings
-        status: "pending", // Or "active" depending on your workflow
+        providerId: service.userId,
+        serviceTitle: service.title,
+        status: "pending",
         createdAt: serverTimestamp(),
       };
-      const bookingDocRef = await addDoc(bookingsRef, newBooking);
-      toast.success("Service booked successfully! Check 'My Bookings' to track it.");
 
-      // Send an initial message to the provider
-      if (service.userId && service.title) {
-        const providerId = service.userId;
-        const chatId = [currentUser.uid, providerId].sort().join('_');
-        const messagesRef = collection(db, "messages");
-        
-        const initialMessage = {
-          chatId,
-          senderId: currentUser.uid,
-          receiverId: providerId, // Store receiverId for potential notifications or specific queries
-          text: `Hi ${ownerName || 'Provider'}, I've just booked your service: "${service.title}". Looking forward to it! Booking ID: ${bookingDocRef.id}`,
-          timestamp: serverTimestamp(),
-          read: false, // Optional: for read receipts
-        };
-        await addDoc(messagesRef, initialMessage);
-        console.log("Initial booking message sent to provider.");
-        // Optionally, navigate to the chat screen or show another toast
-        // navigate(`/chatscreen/${currentUser.uid}/${providerId}`);
-      } else {
-        console.warn("Could not send booking message: providerId or service title missing.");
+      const bookingDocRef = await addDoc(bookingsRef, newBooking);
+      toast.success("Service booked!");
+
+      // Create chat message and conversation
+      const participantIds = [currentUser.uid, service.userId].sort();
+      const conversationId = participantIds.join("_");
+
+      const conversationRef = doc(db, "conversations", conversationId);
+      const conversationSnap = await getDoc(conversationRef);
+      if (!conversationSnap.exists()) {
+        await setDoc(conversationRef, {
+          participants: participantIds,
+          createdAt: serverTimestamp(),
+        });
       }
 
+      const messagesRef = collection(db, "messages");
+      await addDoc(messagesRef, {
+        chatId: conversationId,
+        senderId: currentUser.uid,
+        receiverId: service.userId,
+        text: `Hi ${ownerName}, I've just booked your service: "${service.title}". Looking forward to it! Booking ID: ${bookingDocRef.id}`,
+        timestamp: serverTimestamp(),
+        read: false,
+      });
+
     } catch (err) {
-      toast.error("Failed to book service. Please try again.");
       console.error("Booking error:", err);
+      toast.error("Booking failed.");
+    }
+  };
+
+  const handleChat = async () => {
+    if (!currentUser || !service?.userId) return;
+
+    try {
+      const participantIds = [currentUser.uid, service.userId].sort();
+      const conversationId = participantIds.join("_");
+
+      const conversationRef = doc(db, "conversations", conversationId);
+      const conversationSnap = await getDoc(conversationRef);
+      if (!conversationSnap.exists()) {
+        await setDoc(conversationRef, {
+          participants: participantIds,
+          createdAt: serverTimestamp(),
+        });
+      }
+
+      navigate(`/chatscreen/${currentUser.uid}/${service.userId}`);
+    } catch (err) {
+      console.error("Chat init failed:", err);
+      toast.error("Could not open chat.");
     }
   };
 
@@ -163,11 +185,7 @@ const ServiceDetailsScreen = () => {
           <Carousel showThumbs={false} className="mb-6 rounded-xl overflow-hidden">
             {service.images.map((url, index) => (
               <div key={index}>
-                <img 
-                  src={url} 
-                  alt={`Service ${index}`}
-                  className="h-full w-full object-contain" // Changed to object-contain for better image display
-                />
+                <img src={url} alt={`Service ${index}`} className="h-full w-full object-contain" />
               </div>
             ))}
           </Carousel>
@@ -187,25 +205,24 @@ const ServiceDetailsScreen = () => {
         </p>
 
         {currentUser && currentUser.uid !== service.userId && (
-          <button
-            onClick={handleBookService}
-            className="bg-blue-500 text-white px-5 py-2 rounded-lg hover:bg-blue-600 transition mb-4 mr-2" // Added mr-2
-          >
-            Book Service
-          </button>
+          <>
+            <button
+              onClick={handleBookService}
+              className="bg-blue-500 text-white px-5 py-2 rounded-lg hover:bg-blue-600 transition mb-4 mr-2"
+            >
+              Book Service
+            </button>
+
+            <button
+              onClick={handleChat}
+              className="bg-green-500 text-white px-5 py-2 rounded-lg hover:bg-green-600 transition mb-4"
+            >
+              Chat with Provider
+            </button>
+          </>
         )}
 
-        {/* New Chat Button - Now it can also be used to continue chat post-booking */}
-        {currentUser && currentUser.uid !== service.userId && (
-          <button
-            onClick={() => navigate(`/chatscreen/${currentUser.uid}/${service.userId}`)} // Ensure service.userId is available
-            className="bg-green-500 text-white px-5 py-2 rounded-lg hover:bg-green-600 transition mb-4"
-          >
-            Chat with Provider
-          </button>
-        )}
-
-        <div className="flex items-center space-x-4 mt-4"> {/* Added mt-4 */}
+        <div className="flex items-center space-x-4 mt-4">
           <ServiceRating serviceId={serviceId} />
           {currentUser && <FavoriteButton serviceId={serviceId} userId={currentUser.uid} />}
         </div>
