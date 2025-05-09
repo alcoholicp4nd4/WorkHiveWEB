@@ -12,18 +12,22 @@ export default function ProviderBookingsScreen() {
   const [services, setServices] = useState({});
   const [sortBy, setSortBy] = useState('date');
   const [sortOrder, setSortOrder] = useState('desc');
+  const [viewMode, setViewMode] = useState('to'); // 'to' for bookings to the user, 'by' for bookings by the user
   const auth = getAuth();
   const userId = auth.currentUser?.uid;
   const navigate = useNavigate();
 
   useEffect(() => {
-    const q = query(collection(db, 'bookings'), where('providerId', '==', userId));
+    const q = viewMode === 'to'
+      ? query(collection(db, 'bookings'), where('userId', '==', userId)) // Bookings to the current user
+      : query(collection(db, 'bookings'), where('providerId', '==', userId)); // Bookings made by the current user
+
     const unsubscribe = onSnapshot(q, snapshot => {
       const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
       setBookings(data);
     });
     return () => unsubscribe();
-  }, [userId]);
+  }, [userId, viewMode]);
 
   useEffect(() => {
     const fetchDetails = async () => {
@@ -114,6 +118,12 @@ export default function ProviderBookingsScreen() {
           ← Back
         </button>
         <h1 className="text-xl font-semibold text-purple-900">Provider Bookings</h1>
+        <button
+          onClick={() => setViewMode(viewMode === 'to' ? 'by' : 'to')}
+          className="ml-4 bg-purple-300 px-3 py-1 rounded"
+        >
+          Switch to {viewMode === 'to' ? 'Bookings By Me' : 'Bookings To Me'}
+        </button>
       </div>
 
       <div className="flex space-x-4 mb-6">
@@ -150,13 +160,13 @@ export default function ProviderBookingsScreen() {
               <p><strong>Date:</strong> {item.createdAt?.toDate().toLocaleString()}</p>
 
               <div className="mt-2 flex space-x-2">
-                {item.status === 'pending' && (
+                {viewMode === 'to' && item.status === 'pending' && (
                   <>
                     <button
                       onClick={() => handleUpdateStatus(item.id, 'in progress')}
                       className="bg-green-300 px-3 py-1 rounded"
                     >
-                      ✅ Confirm
+                      ✅ Accept
                     </button>
                     <button
                       onClick={() => handleReject(item.id)}
@@ -166,7 +176,7 @@ export default function ProviderBookingsScreen() {
                     </button>
                   </>
                 )}
-                {item.status === 'in progress' && (
+                {viewMode === 'by' && item.status === 'in progress' && (
                   <button
                     onClick={() => handleUpdateStatus(item.id, 'completed')}
                     className="bg-blue-300 px-3 py-1 rounded"
