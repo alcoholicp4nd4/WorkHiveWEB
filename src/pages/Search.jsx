@@ -345,7 +345,7 @@ export default function SearchScreen() {
                     <Popup>
                       <div className="w-48 p-1">
                         <img 
-                          src={provider.profileImage || provider.profileImage || 'https://via.placeholder.com/80'}
+                          src={provider.profileImage || 'https://via.placeholder.com/80'}
                           alt={`Profile of ${provider.name || 'Provider'}`}
                           className="w-16 h-16 rounded-full mx-auto mb-2 object-cover shadow-md"
                           onError={(e) => {
