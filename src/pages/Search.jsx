@@ -13,7 +13,9 @@ import {
   doc,
   getDoc,
   setDoc,
-  serverTimestamp
+  serverTimestamp,
+  getDocs,
+  documentId
 } from 'firebase/firestore';
 
 const FALLBACK_PROFILE_IMAGE_URL = "https://cdn.pixabay.com/photo/2015/10/05/22/37/blank-profile-picture-973460_1280.png"; // Standard fallback
@@ -233,24 +235,90 @@ export default function SearchScreen() {
 
   useEffect(() => {
     setLoadingServices(true);
-    let q;
+    let servicesQuery;
     if (category && category !== 'All') {
-      q = query(collection(db, 'services'), where('category', '==', category));
+      servicesQuery = query(collection(db, 'services'), where('category', '==', category));
     } else {
-      q = query(collection(db, 'services'));
+      servicesQuery = query(collection(db, 'services'));
     }
 
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      const fetched = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-      setServices(fetched);
+    const unsubscribe = onSnapshot(servicesQuery, async (snapshot) => {
+      const fetchedServices = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+
+      if (fetchedServices.length === 0) {
+        setServices([]);
+        setLoadingServices(false);
+        return;
+      }
+
+      // Step 1: Fetch ratings for each service
+      const servicesWithRatingsPromises = fetchedServices.map(async (service) => {
+        const ratingsQuery = query(collection(db, 'ratings'), where('serviceId', '==', service.id));
+        try {
+          const ratingSnapshot = await getDocs(ratingsQuery);
+          let totalRating = 0;
+          let ratingCount = 0;
+          ratingSnapshot.forEach(doc => {
+            const ratingValue = doc.data().rating;
+            if (typeof ratingValue === 'number') {
+              totalRating += ratingValue;
+              ratingCount++;
+            }
+          });
+          return {
+            ...service,
+            serviceAvgRating: ratingCount > 0 ? totalRating / ratingCount : 0,
+            serviceRatingCount: ratingCount,
+          };
+        } catch (error) {
+          console.error(`Error fetching ratings for service ${service.id}:`, error);
+          return { ...service, serviceAvgRating: 0, serviceRatingCount: 0 }; // Fallback
+        }
+      });
+      const servicesWithRatings = await Promise.all(servicesWithRatingsPromises);
+
+      // Step 2: Fetch provider details
+      const providerIds = [...new Set(servicesWithRatings.map(s => s.userId).filter(id => id))];
+      const providerDetailsMap = new Map();
+
+      if (providerIds.length > 0) {
+        const MaxInQueryItems = 30; // Firestore 'in' query limit (actually 30 as of recent updates, was 10)
+        for (let i = 0; i < providerIds.length; i += MaxInQueryItems) {
+          const batchIds = providerIds.slice(i, i + MaxInQueryItems);
+          if (batchIds.length > 0) {
+            const usersQuery = query(collection(db, 'users'), where(documentId(), 'in', batchIds));
+            try {
+              const usersSnapshot = await getDocs(usersQuery);
+              usersSnapshot.docs.forEach(userDoc => {
+                providerDetailsMap.set(userDoc.id, { 
+                  username: userDoc.data().username,
+                  profileImage: userDoc.data().profileImage,
+                  // Note: provider's overall rating could be here if needed, but we use service-specific
+                  id: userDoc.id 
+                });
+              });
+            } catch (error) {
+              console.error("Error fetching batch of provider details:", error);
+            }
+          }
+        }
+      }
+      
+      // Step 3: Combine service (with its calculated rating) and provider details
+      const finalServicesWithDetails = servicesWithRatings.map(service => ({
+        ...service,
+        providerDetails: providerDetailsMap.get(service.userId) || null,
+      }));
+
+      setServices(finalServicesWithDetails);
       setLoadingServices(false);
     }, (error) => {
-      console.error("Firestore Error fetching services:", error);
+      console.error("Firestore Error fetching services snapshot:", error);
       setLoadingServices(false);
     });
 
     return () => unsubscribe();
-  }, [category]); // Removed isMounted from deps as it's from outer scope
+  }, [category]);
 
   return (
     <div className="flex flex-col h-screen">
@@ -327,28 +395,34 @@ export default function SearchScreen() {
               pathOptions={{ fillColor: '#CB9DF0', fillOpacity: 0.3, color: '#CB9DF0' }}
             />
             {services
-              .filter((provider) =>
-                !searchQuery || (provider.name && provider.name.toLowerCase().includes(searchQuery.toLowerCase()))
+              .filter((service) =>
+                !searchQuery || 
+                (service.title && service.title.toLowerCase().includes(searchQuery.toLowerCase())) ||
+                (service.providerDetails?.username && service.providerDetails.username.toLowerCase().includes(searchQuery.toLowerCase()))
               )
-              .map((provider) => {
-                if (!provider.location || typeof provider.location.latitude !== 'number' || typeof provider.location.longitude !== 'number') {
-                  console.warn(`Provider ${provider.name || provider.id} has invalid location data:`, provider.location);
+              .map((service) => {
+                if (!service.location || typeof service.location.latitude !== 'number' || typeof service.location.longitude !== 'number') {
+                  console.warn(`Service ${service.title || service.id} has invalid location data:`, service.location);
                   return null;
                 }
+                // Use providerDetails for name and image
+                const providerName = service.providerDetails?.username || 'N/A';
+                const providerImage = service.providerDetails?.profileImage || FALLBACK_PROFILE_IMAGE_URL;
+
                 return (
                   <Marker
-                    key={provider.id}
+                    key={service.id}
                     position={{
-                      lat: provider.location.latitude,
-                      lng: provider.location.longitude,
+                      lat: service.location.latitude,
+                      lng: service.location.longitude,
                     }}
                     icon={providerIcon}
                   >
                     <Popup>
                       <div className="w-48 p-1">
                         <img 
-                          src={provider.profileImage || 'https://via.placeholder.com/80'}
-                          alt={`Profile of ${provider.name || 'Provider'}`}
+                          src={providerImage}
+                          alt={`Profile of ${providerName}`}
                           className="w-16 h-16 rounded-full mx-auto mb-2 object-cover shadow-md"
                           onError={(e) => {
                             if (e.target.src !== FALLBACK_PROFILE_IMAGE_URL) {
@@ -357,13 +431,15 @@ export default function SearchScreen() {
                             }
                           }}
                         />
-                        <h3 className="text-md font-semibold text-center text-gray-800 mb-1 truncate">{provider.name || 'N/A'}</h3>
-                        <p className="text-xs text-gray-600 text-center mb-1 truncate">{provider.title || provider.service || 'Service not specified'}</p>
-                        <p className="text-xs text-yellow-500 text-center mb-2">Rating: {provider.rating ? `${Number(provider.rating).toFixed(1)}/5` : 'N/A'}</p>
+                        <h3 className="text-md font-semibold text-center text-gray-800 mb-1 truncate">{providerName}</h3>
+                        <p className="text-xs text-gray-600 text-center mb-1 truncate">{service.title || 'Service not specified'}</p>
+                        <p className="text-xs text-yellow-500 text-center mb-2">
+                          Rating: {service.serviceRatingCount > 0 ? `${service.serviceAvgRating.toFixed(1)}/5 (${service.serviceRatingCount})` : 'New'}
+                        </p>
                         <button 
                           onClick={(e) => { 
                             e.stopPropagation();
-                            navigate(`/ServiceDetails/${provider.id}`);
+                            navigate(`/ServiceDetails/${service.id}`);
                           }}
                           className="w-full bg-purple-500 text-white text-xs py-1 px-2 rounded hover:bg-purple-600 transition-colors focus:outline-none focus:ring-2 focus:ring-purple-400"
                         >

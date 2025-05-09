@@ -31,6 +31,7 @@ export default function Home() {
     const fetchServicesAndProviders = async () => {
       setLoading(true);
       const servicesQuery = query(collection(db, 'services'), orderBy('createdAt', 'desc'));
+      
       const unsubscribeServices = onSnapshot(servicesQuery, async (servicesSnapshot) => {
         const fetchedServices = servicesSnapshot.docs.map(doc => ({
           id: doc.id,
@@ -43,40 +44,66 @@ export default function Home() {
           return;
         }
 
-        const providerIds = [...new Set(fetchedServices.map(service => service.userId).filter(id => id))];
-
-        if (providerIds.length === 0) {
-          setServicesWithProviders(fetchedServices.map(s => ({...s, providerDetails: null })));
-          setLoading(false);
-          return;
-        }
-        
-        const providerDetailsMap = new Map();
-        const MaxInQueryItems = 30;
-        for (let i = 0; i < providerIds.length; i += MaxInQueryItems) {
-          const batchIds = providerIds.slice(i, i + MaxInQueryItems);
-          if (batchIds.length > 0) {
-            const usersQuery = query(collection(db, 'users'), where(documentId(), 'in', batchIds));
-            const usersSnapshot = await getDocs(usersQuery);
-            usersSnapshot.docs.forEach(doc => {
-              providerDetailsMap.set(doc.id, { 
-                username: doc.data().username,
-                profileImage: doc.data().profileImage,
-                rating: doc.data().rating,
-                id: doc.id
-              });
+        // Step 1: Fetch ratings for each service and calculate average
+        const servicesWithRatingsPromises = fetchedServices.map(async (service) => {
+          const ratingsQuery = query(collection(db, 'ratings'), where('serviceId', '==', service.id));
+          try {
+            const ratingSnapshot = await getDocs(ratingsQuery);
+            let totalRating = 0;
+            let ratingCount = 0;
+            ratingSnapshot.forEach(doc => {
+              const ratingValue = doc.data().rating; // Assuming 'rating' field in rating documents
+              if (typeof ratingValue === 'number') {
+                totalRating += ratingValue;
+                ratingCount++;
+              }
             });
+            return {
+              ...service,
+              serviceAvgRating: ratingCount > 0 ? totalRating / ratingCount : 0,
+              serviceRatingCount: ratingCount,
+            };
+          } catch (error) {
+            console.error(`Error fetching ratings for service ${service.id}:`, error);
+            return { ...service, serviceAvgRating: 0, serviceRatingCount: 0 }; // Fallback
+          }
+        });
+
+        const servicesWithRatings = await Promise.all(servicesWithRatingsPromises);
+
+        // Step 2: Fetch provider details
+        const providerIds = [...new Set(servicesWithRatings.map(s => s.userId).filter(id => id))];
+        const providerDetailsMap = new Map();
+
+        if (providerIds.length > 0) {
+          const MaxInQueryItems = 30;
+          for (let i = 0; i < providerIds.length; i += MaxInQueryItems) {
+            const batchIds = providerIds.slice(i, i + MaxInQueryItems);
+            if (batchIds.length > 0) {
+              const usersQuery = query(collection(db, 'users'), where(documentId(), 'in', batchIds));
+              const usersSnapshot = await getDocs(usersQuery);
+              usersSnapshot.docs.forEach(doc => {
+                providerDetailsMap.set(doc.id, { 
+                  username: doc.data().username,
+                  profileImage: doc.data().profileImage,
+                  rating: doc.data().rating, // This is provider's overall rating
+                  id: doc.id
+                });
+              });
+            }
           }
         }
-        const servicesWithAugmentedProviders = fetchedServices.map(service => ({
+        
+        // Step 3: Combine service (with its calculated rating) and provider details
+        const finalServicesWithProviders = servicesWithRatings.map(service => ({
           ...service,
           providerDetails: providerDetailsMap.get(service.userId) || null,
         }));
 
-        setServicesWithProviders(servicesWithAugmentedProviders);
+        setServicesWithProviders(finalServicesWithProviders);
         setLoading(false);
       }, error => {
-        console.error("Error fetching services or providers:", error);
+        console.error("Error fetching services snapshot:", error);
         setLoading(false);
       });
 
@@ -195,7 +222,7 @@ export default function Home() {
                     </div>
                   )}
                   <div className="mt-auto">
-                    <span className="text-sm font-medium text-yellow-300">★ {service.rating ? parseFloat(service.rating).toFixed(1) : (service.providerDetails?.rating ? parseFloat(service.providerDetails.rating).toFixed(1) : 'New')}</span>
+                    <span className="text-sm font-medium text-yellow-300">★ {service.serviceRatingCount > 0 ? service.serviceAvgRating.toFixed(1) : 'New'}</span>
                   </div>
                 </div>
               </div>
