@@ -80,9 +80,14 @@ export default function Profile() {
       <div className="bg-[#CB9DF0] text-white text-center py-10 px-6">
         <div className="relative inline-block">
           <img
-            src={profileImage || 'https://placehold.co/100'}
+            src={profileImage || 'https://cdn.pixabay.com/photo/2015/10/05/22/37/blank-profile-picture-973460_1280.png'}
             alt="Profile"
             className="w-28 h-28 rounded-full border-4 border-white mx-auto"
+            onError={(e) => {
+              e.target.onerror = null; // Prevents looping if the fallback also fails
+              e.target.src =
+                "https://cdn.pixabay.com/photo/2015/10/05/22/37/blank-profile-picture-973460_1280.png";
+            }}
           />
           <label htmlFor="upload" className="absolute bottom-0 right-0 bg-black bg-opacity-60 p-1 rounded-full cursor-pointer">
             <Camera size={20} color="#fff" />

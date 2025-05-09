@@ -77,9 +77,14 @@ export default function FavoriteScreen() {
         {favorites.map(item => (
           <div key={item.id} style={styles.serviceCard} onClick={() => {/* Navigate to service details */}}>
             <img
-              src={item.images?.[0] || 'https://via.placeholder.com/300'}
+              src={item.images?.[0] || 'https://cdn.pixabay.com/photo/2015/10/05/22/37/blank-profile-picture-973460_1280.png'}
               alt={item.title}
               style={styles.serviceImage}
+              onError={(e) => {
+                e.target.onerror = null; // Prevents looping if the fallback also fails
+                e.target.src =
+                  "https://cdn.pixabay.com/photo/2015/10/05/22/37/blank-profile-picture-973460_1280.png";
+              }}
             />
             <div style={styles.serviceInfo}>
               <p style={styles.serviceTitle}>{item.title}</p>

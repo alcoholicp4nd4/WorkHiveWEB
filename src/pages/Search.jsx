@@ -16,6 +16,8 @@ import {
   serverTimestamp
 } from 'firebase/firestore';
 
+const FALLBACK_PROFILE_IMAGE_URL = "https://cdn.pixabay.com/photo/2015/10/05/22/37/blank-profile-picture-973460_1280.png"; // Standard fallback
+
 const predefinedCategories = [
   { label: 'Web Development', value: 'web-development' },
   { label: 'Mobile App Development', value: 'mobile-app-development' },
@@ -349,9 +351,9 @@ export default function SearchScreen() {
                           alt={`Profile of ${provider.name || 'Provider'}`}
                           className="w-16 h-16 rounded-full mx-auto mb-2 object-cover shadow-md"
                           onError={(e) => {
-                            if (e.target.src !== 'https://via.placeholder.com/80') {
+                            if (e.target.src !== FALLBACK_PROFILE_IMAGE_URL) {
                                 e.target.onerror = null; 
-                                e.target.src = 'https://via.placeholder.com/80';
+                                e.target.src = FALLBACK_PROFILE_IMAGE_URL;
                             }
                           }}
                         />

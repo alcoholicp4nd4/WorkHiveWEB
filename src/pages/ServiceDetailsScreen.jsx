@@ -185,7 +185,16 @@ const ServiceDetailsScreen = () => {
           <Carousel showThumbs={false} className="mb-6 rounded-xl overflow-hidden">
             {service.images.map((url, index) => (
               <div key={index}>
-                <img src={url} alt={`Service ${index}`} className="h-full w-full object-contain" />
+                <img
+                  src={url}
+                  alt={`Service ${index}`}
+                  className="h-full w-full object-contain"
+                  onError={(e) => {
+                    e.target.onerror = null; // Prevents looping if the fallback also fails
+                    e.target.src =
+                      "https://cdn.pixabay.com/photo/2015/10/05/22/37/blank-profile-picture-973460_1280.png";
+                  }}
+                />
               </div>
             ))}
           </Carousel>
