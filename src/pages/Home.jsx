@@ -1,76 +1,89 @@
 import { useEffect, useState } from "react";
 import { db } from "../database/firebaseConfig";
 import { getCurrentUser } from "../database/authDatabase";
-import { collection, getDocs, query, where, orderBy, onSnapshot } from "firebase/firestore";
+import { collection, getDocs, query, where, orderBy, onSnapshot, documentId } from "firebase/firestore";
 import { useNavigate } from "react-router-dom";
 import React from "react";
+import { Carousel } from "react-responsive-carousel";
+import "react-responsive-carousel/lib/styles/carousel.min.css";
 
 const headerImage = "https://img.freepik.com/photos-premium/homme-vetu-uniforme-tenant-cle_220873-20532.jpg?w=1060";
+const fallbackServiceCardImage = "https://cdn.pixabay.com/photo/2015/10/05/22/37/blank-profile-picture-973460_1280.png";
+const fallbackProviderAvatar = "https://cdn.pixabay.com/photo/2015/10/05/22/37/blank-profile-picture-973460_1280.png";
 
 export default function Home() {
-  const [services, setServices] = useState([]);
+  const [servicesWithProviders, setServicesWithProviders] = useState([]);
   const [loading, setLoading] = useState(true);
   const [currentUser, setCurrentUser] = useState(null);
   const [categories, setCategories] = useState([ 
-    { label: 'Web Development', value: 'web-development' },
-    { label: 'Mobile App Development', value: 'mobile-app-development' },
-    { label: 'Software Engineering', value: 'software-engineering' },
-    { label: 'UI/UX Design', value: 'ui-ux-design' },
-    { label: 'QA Testing', value: 'qa-testing' },
-    { label: 'Game Development', value: 'game-development' },
-    { label: 'DevOps & Cloud', value: 'devops-cloud' },
-    { label: 'Graphic Design', value: 'graphic-design' },
-    { label: 'Logo Design', value: 'logo-design' },
-    { label: 'Animation', value: 'animation' },
-    { label: 'Video Editing', value: 'video-editing' },
-    { label: 'Photography', value: 'photography' },
-    { label: 'Branding & Identity', value: 'branding' },
-    { label: 'Illustration', value: 'illustration' },
-    { label: 'SEO Optimization', value: 'seo' },
-    { label: 'Digital Marketing', value: 'digital-marketing' },
-    { label: 'Social Media Management', value: 'social-media' },
-    { label: 'Email Marketing', value: 'email-marketing' },
-    { label: 'Copywriting', value: 'copywriting' },
-    { label: 'Business Consulting', value: 'business-consulting' },
-    { label: 'Sales Strategy', value: 'sales-strategy' },
-    { label: 'Plumbing', value: 'plumbing' },
-    { label: 'Electrical Work', value: 'electrical' },
-    { label: 'Cleaning', value: 'cleaning' },
-    { label: 'Moving Services', value: 'moving' },
-    { label: 'Handyman Services', value: 'handyman' },
-    { label: 'Pest Control', value: 'pest-control' },
-    { label: 'Landscaping', value: 'landscaping' },
-    { label: 'Tutoring', value: 'tutoring' },
-    { label: 'Language Teaching', value: 'language-teaching' },
-    { label: 'Life Coaching', value: 'life-coaching' },
-    { label: 'Career Coaching', value: 'career-coaching' },
-    { label: 'Test Preparation', value: 'test-prep' },
-    { label: 'Fitness Training', value: 'fitness-training' },
-    { label: 'Yoga Instruction', value: 'yoga' },
-    { label: 'Therapy & Counseling', value: 'therapy' },
-    { label: 'Nutrition Planning', value: 'nutrition' },
-    { label: 'Beauty & Skincare', value: 'beauty' },
-    { label: 'Hair Styling', value: 'hair-styling' },
-    { label: 'Event Planning', value: 'event-planning' },
-    { label: 'Virtual Assistance', value: 'virtual-assistance' },
-    { label: 'Data Entry', value: 'data-entry' },
-    { label: 'Translation Services', value: 'translation' },
-    { label: 'Custom Orders', value: 'custom-orders' },
+    { label: 'Tech', value: 'tech' },
+    { label: 'Design', value: 'design' },
+    { label: 'Business', value: 'business' },
+    { label: 'Education', value: 'education' },
+    { label: 'Wellness', value: 'wellness' },
+    { label: 'Local', value: 'local' },
+    { label: 'Others', value: 'others' },
   ]);
 
   const navigate = useNavigate();
 
   useEffect(() => {
-    const q = query(collection(db, 'services'), orderBy('createdAt', 'desc'));
-    const unsubscribe = onSnapshot(q, snapshot => {
-      const fetched = snapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data(),
-      }));
-      setServices(fetched);
-      setLoading(false);
-    });
-    return () => unsubscribe();
+    const fetchServicesAndProviders = async () => {
+      setLoading(true);
+      const servicesQuery = query(collection(db, 'services'), orderBy('createdAt', 'desc'));
+      const unsubscribeServices = onSnapshot(servicesQuery, async (servicesSnapshot) => {
+        const fetchedServices = servicesSnapshot.docs.map(doc => ({
+          id: doc.id,
+          ...doc.data(),
+        }));
+
+        if (fetchedServices.length === 0) {
+          setServicesWithProviders([]);
+          setLoading(false);
+          return;
+        }
+
+        const providerIds = [...new Set(fetchedServices.map(service => service.userId).filter(id => id))];
+
+        if (providerIds.length === 0) {
+          setServicesWithProviders(fetchedServices.map(s => ({...s, providerDetails: null })));
+          setLoading(false);
+          return;
+        }
+        
+        const providerDetailsMap = new Map();
+        const MaxInQueryItems = 30;
+        for (let i = 0; i < providerIds.length; i += MaxInQueryItems) {
+          const batchIds = providerIds.slice(i, i + MaxInQueryItems);
+          if (batchIds.length > 0) {
+            const usersQuery = query(collection(db, 'users'), where(documentId(), 'in', batchIds));
+            const usersSnapshot = await getDocs(usersQuery);
+            usersSnapshot.docs.forEach(doc => {
+              providerDetailsMap.set(doc.id, { 
+                username: doc.data().username,
+                profileImage: doc.data().profileImage,
+                rating: doc.data().rating,
+                id: doc.id
+              });
+            });
+          }
+        }
+        const servicesWithAugmentedProviders = fetchedServices.map(service => ({
+          ...service,
+          providerDetails: providerDetailsMap.get(service.userId) || null,
+        }));
+
+        setServicesWithProviders(servicesWithAugmentedProviders);
+        setLoading(false);
+      }, error => {
+        console.error("Error fetching services or providers:", error);
+        setLoading(false);
+      });
+
+      return () => unsubscribeServices();
+    };
+
+    fetchServicesAndProviders();
   }, []);
 
   useEffect(() => {
@@ -80,8 +93,9 @@ export default function Home() {
     };
     fetchUser();
   }, []);
- return (
-    <div className="overflow-hidden bg-white">
+
+  return (
+    <div className="overflow-x-hidden bg-white">
       {/* Hero Section */}
       <div
         className="h-[400px] bg-cover bg-center flex flex-col justify-center items-center text-white px-4"
@@ -96,19 +110,34 @@ export default function Home() {
       </div>
 
       {/* Categories Section */}
-      <section className="px-5 py-8">
-        <h2 className="text-2xl font-bold mb-4 text-black">Filter by Category</h2>
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
-          {categories.map((category) => (
-            <div
-              key={category.value}
-              className={`min-w-[150px] p-3 bg-[#FFF9BF] text-xl font-bold text-black border border-gray-300 rounded-xl shadow-md ${category.disabled ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
-              onClick={() => !category.disabled && navigate(`/search/${category.value}`)}
-            >
-              <h3 className="text-base font-semibold text-center">{category.label}</h3>
-            </div>
-          ))}
-        </div>
+      <section className="px-5 h-500 py-12">
+        <h2 className="text-2xl font-bold mb-6 text-black">Filter by Category</h2>
+        {categories.length > 0 ? (
+          <Carousel
+            showThumbs={false}
+            showStatus={false}
+            infiniteLoop={true}
+            emulateTouch={true}
+            centerMode={true}
+            centerSlidePercentage={100 / (window.innerWidth < 768 ? 3: window.innerWidth < 1024 ? 3.5 : 4.5)}
+            swipeable={true}
+            showArrows={true}
+            className="category-carousel"
+          >
+            {categories.map((category) => (
+              <div
+                key={category.value}
+                className={`mx-2 p-3 h-24 flex items-center justify-center bg-[#FFF9BF] text-black border border-gray-300 rounded-xl shadow-md ${category.disabled ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer hover:shadow-lg transform hover:scale-105'} transition-all duration-200`}
+                onClick={() => !category.disabled && navigate(`/search/${category.value}`)}
+                style={{ minWidth: '150px' }}
+              >
+                <h3 className="text-base font-semibold text-center">{category.label}</h3>
+              </div>
+            ))}
+          </Carousel>
+        ) : (
+          <p>No categories available.</p>
+        )}
       </section>
 
       {/* Services Section */}
@@ -116,11 +145,11 @@ export default function Home() {
         <h2 className="text-2xl font-bold mb-4 text-black">Featured Providers</h2>
         {loading ? (
           <p className="text-black">Loading services...</p>
-        ) : services.length === 0 ? (
+        ) : servicesWithProviders.length === 0 ? (
           <p className="text-black">No providers found.</p>
         ) : (
-          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-            {services.map((service) => (
+          <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+            {servicesWithProviders.map((service) => (
               <div
                 key={service.id}
                 onClick={() => {
@@ -130,13 +159,43 @@ export default function Home() {
                     alert("Please log in to look at their account.");
                   }
                 }}
-                className="flex bg-[#CB9DF0] text-xl font-bold text-white border border-gray-300 rounded-xl shadow-md p-4 mb-4 cursor-pointer"
+                className="bg-[#CB9DF0] border border-black-500 rounded-xl shadow-lg overflow-hidden cursor-pointer hover:shadow-xl transition-shadow duration-300 flex flex-col"
               >
-                <div className="flex-1">
-                  <h3 className="text-lg font-semibold">{service.title}</h3>
-                  <p className="text-sm mt-1">Service Provider</p>
-                  <div className="mt-2">
-                    <span className="text-sm font-medium">★ 5.0</span>
+                <img 
+                  src={service.images?.[0] || fallbackServiceCardImage}
+                  alt={service.title || 'Service image'}
+                  className="w-full h-48 object-cover"
+                  onError={(e) => {
+                    if (e.target.src !== fallbackServiceCardImage) {
+                        e.target.onerror = null;
+                        e.target.src = fallbackServiceCardImage;
+                    }
+                  }}
+                />
+                <div className="p-5 flex flex-col flex-grow">
+                  <h3 className="text-lg font-semibold text-white mb-1 truncate">{service.title || 'Untitled Service'}</h3>
+                  {service.providerDetails && (
+                    <div className="flex items-center mt-2 mb-2">
+                      {service.providerDetails.profileImage && (
+                        <img 
+                          src={service.providerDetails.profileImage || fallbackProviderAvatar}
+                          alt={service.providerDetails.username || 'Provider'}
+                          className="w-8 h-8 rounded-full mr-2 object-cover"
+                          onError={(e) => {
+                            if (e.target.src !== fallbackProviderAvatar) {
+                                e.target.onerror = null;
+                                e.target.src = fallbackProviderAvatar;
+                            }
+                          }}
+                        />
+                      )}
+                      <p className="text-sm text-gray-100 truncate">
+                        {service.providerDetails.username || 'Service Provider'}
+                      </p>
+                    </div>
+                  )}
+                  <div className="mt-auto">
+                    <span className="text-sm font-medium text-yellow-300">★ {service.rating ? parseFloat(service.rating).toFixed(1) : (service.providerDetails?.rating ? parseFloat(service.providerDetails.rating).toFixed(1) : 'New')}</span>
                   </div>
                 </div>
               </div>

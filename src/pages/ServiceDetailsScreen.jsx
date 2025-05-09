@@ -81,7 +81,13 @@ const ServiceDetailsScreen = () => {
       return;
     }
 
-    if (currentUser.uid === service?.userId) {
+    if (!service || !service.userId) {
+      toast.error("Service details are not fully loaded. Please try again.");
+      console.error("Booking attempt with incomplete service data:", service);
+      return;
+    }
+
+    if (currentUser.uid === service.userId) {
       toast.error("You can't book your own service.");
       return;
     }
@@ -92,22 +98,47 @@ const ServiceDetailsScreen = () => {
         bookingsRef,
         where("serviceId", "==", serviceId),
         where("userId", "==", currentUser.uid),
-        where("status", "==", "active")
+        where("status", "in", ["active", "pending"]) // Check for active or pending bookings
       );
       const querySnapshot = await getDocs(q);
       if (!querySnapshot.empty) {
-        toast.error("You have already booked this service.");
+        toast.error("You have already booked this service or a booking is pending.");
         return;
       }
 
       const newBooking = {
         serviceId,
         userId: currentUser.uid,
-        status: "active",
+        providerId: service.userId, // Store providerId for easier lookup later if needed
+        serviceTitle: service.title, // Store service title for display in bookings
+        status: "pending", // Or "active" depending on your workflow
         createdAt: serverTimestamp(),
       };
-      await addDoc(bookingsRef, newBooking);
+      const bookingDocRef = await addDoc(bookingsRef, newBooking);
       toast.success("Service booked successfully! Check 'My Bookings' to track it.");
+
+      // Send an initial message to the provider
+      if (service.userId && service.title) {
+        const providerId = service.userId;
+        const chatId = [currentUser.uid, providerId].sort().join('_');
+        const messagesRef = collection(db, "messages");
+        
+        const initialMessage = {
+          chatId,
+          senderId: currentUser.uid,
+          receiverId: providerId, // Store receiverId for potential notifications or specific queries
+          text: `Hi ${ownerName || 'Provider'}, I've just booked your service: "${service.title}". Looking forward to it! Booking ID: ${bookingDocRef.id}`,
+          timestamp: serverTimestamp(),
+          read: false, // Optional: for read receipts
+        };
+        await addDoc(messagesRef, initialMessage);
+        console.log("Initial booking message sent to provider.");
+        // Optionally, navigate to the chat screen or show another toast
+        // navigate(`/chatscreen/${currentUser.uid}/${providerId}`);
+      } else {
+        console.warn("Could not send booking message: providerId or service title missing.");
+      }
+
     } catch (err) {
       toast.error("Failed to book service. Please try again.");
       console.error("Booking error:", err);
@@ -134,8 +165,8 @@ const ServiceDetailsScreen = () => {
               <div key={index}>
                 <img 
                   src={url} 
-                  alt={`Service ${index}`} 
-                  className="h-full w-full object-contain"
+                  alt={`Service ${index}`}
+                  className="h-full w-full object-contain" // Changed to object-contain for better image display
                 />
               </div>
             ))}
@@ -158,23 +189,23 @@ const ServiceDetailsScreen = () => {
         {currentUser && currentUser.uid !== service.userId && (
           <button
             onClick={handleBookService}
-            className="bg-blue-500 text-white px-5 py-2 rounded-lg hover:bg-blue-600 transition mb-4"
+            className="bg-blue-500 text-white px-5 py-2 rounded-lg hover:bg-blue-600 transition mb-4 mr-2" // Added mr-2
           >
             Book Service
           </button>
         )}
 
-        {/* New Chat Button */}
-        {currentUser && (
+        {/* New Chat Button - Now it can also be used to continue chat post-booking */}
+        {currentUser && currentUser.uid !== service.userId && (
           <button
-            onClick={() => navigate(`/chatscreen/${currentUser.uid}/${serviceId}`)}
+            onClick={() => navigate(`/chatscreen/${currentUser.uid}/${service.userId}`)} // Ensure service.userId is available
             className="bg-green-500 text-white px-5 py-2 rounded-lg hover:bg-green-600 transition mb-4"
           >
             Chat with Provider
           </button>
         )}
 
-        <div className="flex items-center space-x-4">
+        <div className="flex items-center space-x-4 mt-4"> {/* Added mt-4 */}
           <ServiceRating serviceId={serviceId} />
           {currentUser && <FavoriteButton serviceId={serviceId} userId={currentUser.uid} />}
         </div>

@@ -2,10 +2,19 @@ import React, { useEffect, useState } from 'react';
 import { MapContainer, TileLayer, Marker, Circle, Popup } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
-import { Search } from 'lucide-react';
-import { useParams } from 'react-router-dom';
-import { db } from '../database/firebaseConfig';
-import { collection, query, where, onSnapshot } from 'firebase/firestore';
+import { Search as SearchIcon } from 'lucide-react';
+import { useParams, useNavigate } from 'react-router-dom';
+import { db, auth } from '../database/firebaseConfig';
+import {
+  collection,
+  query,
+  where,
+  onSnapshot,
+  doc,
+  getDoc,
+  setDoc,
+  serverTimestamp
+} from 'firebase/firestore';
 
 const predefinedCategories = [
   { label: 'Web Development', value: 'web-development' },
@@ -76,11 +85,17 @@ const providerIcon = new L.Icon({
 
 export default function SearchScreen() {
   const { category: paramCategory } = useParams();
+  const navigate = useNavigate();
   const [category, setCategory] = useState(paramCategory || 'All');
   const [services, setServices] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const [loadingServices, setLoadingServices] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
+  
   const [position, setPosition] = useState(null);
+  const [currentAccuracy, setCurrentAccuracy] = useState(null);
+  const [locationStatus, setLocationStatus] = useState("Initializing...");
+  const [locationSource, setLocationSource] = useState("none"); // 'firebase', 'browser', 'none'
+
   const [price, setPrice] = useState(100);
   const [radius, setRadius] = useState(5);
 
@@ -88,73 +103,134 @@ export default function SearchScreen() {
     ? predefinedCategories
     : paramCategory ? [...predefinedCategories, { label: paramCategory, value: paramCategory }] : predefinedCategories;
 
-  useEffect(() => {
-    let watchId;
+  const MIN_ACCURACY_THRESHOLD = 5000000000; // meters, increased for faster initial display if using Firebase
+  const FIREBASE_LOCATION_MAX_AGE = 60 * 60 * 1000; // 1 hour in milliseconds
 
-    const getLocation = () => {
-      const options = {
-        enableHighAccuracy: true, // Use high accuracy mode
-        timeout: 10000,          // Timeout after 10 seconds
-        maximumAge: 0            // Don't use cached position
+  // Function to save location to Firebase
+  const saveLocationToFirebase = async (userId, locData) => {
+    if (!userId || !locData) return;
+    try {
+      const userDocRef = doc(db, 'users', userId);
+      await setDoc(userDocRef, {
+        lastKnownLocation: {
+          lat: locData.lat,
+          lng: locData.lng,
+          accuracy: locData.accuracy,
+          timestamp: serverTimestamp()
+        }
+      }, { merge: true });
+      console.log("User location saved to Firebase:", locData);
+    } catch (error) {
+      console.error("Error saving location to Firebase:", error);
+    }
+  };
+
+  useEffect(() => {
+    let watchId = null;
+    let isMounted = true;
+
+    const fetchAndSetInitialLocation = async () => {
+      const currentUser = auth.currentUser;
+      if (currentUser && currentUser.uid) {
+        if (isMounted) setLocationStatus("Fetching last known location from Firebase...");
+        try {
+          const userDocRef = doc(db, 'users', currentUser.uid);
+          const userDocSnap = await getDoc(userDocRef);
+          if (userDocSnap.exists()) {
+            const userData = userDocSnap.data();
+            if (userData.lastKnownLocation && userData.lastKnownLocation.timestamp) {
+              const locAge = Date.now() - userData.lastKnownLocation.timestamp.toDate().getTime();
+              if (locAge < FIREBASE_LOCATION_MAX_AGE && userData.lastKnownLocation.lat && userData.lastKnownLocation.lng) {
+                if (isMounted) {
+                  setPosition({ lat: userData.lastKnownLocation.lat, lng: userData.lastKnownLocation.lng });
+                  setCurrentAccuracy(userData.lastKnownLocation.accuracy || null);
+                  setLocationStatus(`Using last known location (Accuracy: ${userData.lastKnownLocation.accuracy ? userData.lastKnownLocation.accuracy.toFixed(0) : 'N/A'}m). Attempting live update.`);
+                  setLocationSource("firebase");
+                }
+              } else {
+                 if (isMounted) setLocationStatus("Last known location is too old. Seeking live location...");
+              }
+            } else {
+              if (isMounted) setLocationStatus("No previous location found. Seeking live location...");
+            }
+          } else {
+            if (isMounted) setLocationStatus("User profile not found. Seeking live location...");
+          }
+        } catch (error) {
+          console.error("Error fetching location from Firebase:", error);
+          if (isMounted) setLocationStatus("Error fetching saved location. Seeking live location...");
+        }
+      }
+
+      // Always attempt to get live location
+      if (!navigator.geolocation) {
+        if (isMounted) setLocationStatus("Geolocation is not supported by your browser.");
+        return;
+      }
+
+      if (isMounted && locationSource !== 'firebase') {
+        setLocationStatus("Attempting to get your current location...");
+      } else if (isMounted) {
+        setLocationStatus("Attempting to update live location...");
+      }
+
+      const handlePositionUpdate = (posData) => {
+        if (!isMounted) return;
+        const { latitude, longitude, accuracy } = posData.coords;
+        setCurrentAccuracy(accuracy);
+        setLocationSource("browser");
+        console.log(`Live location update. Accuracy: ${accuracy}m`);
+
+        if (accuracy <= MIN_ACCURACY_THRESHOLD) {
+          const newPosition = { lat: latitude, lng: longitude };
+          setPosition(newPosition);
+          setLocationStatus(`Live location acquired. Accuracy: ${accuracy.toFixed(0)}m.`);
+          if (currentUser && currentUser.uid) {
+            saveLocationToFirebase(currentUser.uid, { ...newPosition, accuracy });
+          }
+        } else {
+          // If we have a Firebase position or an old good position, don't override with a bad live one immediately
+          // unless we have nothing yet.
+          if (!position) {
+             setLocationStatus(`Improving live accuracy. Current: ${accuracy.toFixed(0)}m. Target: < ${MIN_ACCURACY_THRESHOLD}m.`);
+          } else {
+             setLocationStatus(`Current live accuracy: ${accuracy.toFixed(0)}m (target < ${MIN_ACCURACY_THRESHOLD}m). Map shows best available.`);
+          }
+        }
       };
 
-      watchId = navigator.geolocation.watchPosition(
-        (position) => {
-          const { latitude, longitude, accuracy } = position.coords;
-          console.log(`Location updated - Accuracy: ${accuracy} meters`);
-          setPosition({ lat: latitude, lng: longitude });
-        },
-        (error) => {
-          console.error('Geolocation Error:', error);
-          switch(error.code) {
-            case error.PERMISSION_DENIED:
-              console.error('Location permission denied');
-              break;
-            case error.POSITION_UNAVAILABLE:
-              console.error('Location information unavailable');
-              break;
-            case error.TIMEOUT:
-              console.error('Location request timed out');
-              break;
-            default:
-              console.error('Unknown error occurred');
-          }
-        },
-        options
-      );
+      const handleError = (error) => {
+        if (!isMounted) return;
+        console.error("Browser Geolocation Error:", error);
+        let message = locationSource === 'firebase' && position ? "Could not update live location. Using last saved. Error: " : "Error getting live location: ";
+        switch (error.code) {
+          case error.PERMISSION_DENIED: message += "Permission denied."; break;
+          case error.POSITION_UNAVAILABLE: message += "Position unavailable."; break;
+          case error.TIMEOUT: message += "Request timed out."; break;
+          default: message += "Unknown error.";
+        }
+        setLocationStatus(message);
+        // If live location fails and we don't have a Firebase location, it remains in error state
+      };
+
+      const geoOptions = { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 };
+      
+      navigator.geolocation.getCurrentPosition(handlePositionUpdate, handleError, geoOptions);
+      watchId = navigator.geolocation.watchPosition(handlePositionUpdate, handleError, geoOptions);
     };
 
-    // Try to get initial position
-    navigator.geolocation.getCurrentPosition(
-      (position) => {
-        const { latitude, longitude, accuracy } = position.coords;
-        console.log(`Initial position - Accuracy: ${accuracy} meters`);
-        setPosition({ lat: latitude, lng: longitude });
-        // Start watching position after getting initial position
-        getLocation();
-      },
-      (error) => {
-        console.error('Initial position error:', error);
-        // Still try to watch position even if initial position fails
-        getLocation();
-      },
-      {
-        enableHighAccuracy: true,
-        timeout: 10000,
-        maximumAge: 0
-      }
-    );
+    fetchAndSetInitialLocation();
 
-    // Cleanup function to stop watching position
     return () => {
+      isMounted = false;
       if (watchId) {
         navigator.geolocation.clearWatch(watchId);
       }
     };
-  }, []);
+  }, []); // Empty dependency array: runs once on mount.
 
   useEffect(() => {
-    setLoading(true);
+    setLoadingServices(true);
     let q;
     if (category && category !== 'All') {
       q = query(collection(db, 'services'), where('category', '==', category));
@@ -163,26 +239,22 @@ export default function SearchScreen() {
     }
 
     const unsubscribe = onSnapshot(q, (snapshot) => {
-      const fetched = snapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data(),
-      }));
-      console.log(`Fetched ${fetched.length} services for category: ${category}`);
+      const fetched = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
       setServices(fetched);
-      setLoading(false);
+      setLoadingServices(false);
     }, (error) => {
-      console.error("Firestore Error:", error);
-      setLoading(false);
+      console.error("Firestore Error fetching services:", error);
+      setLoadingServices(false);
     });
 
     return () => unsubscribe();
-  }, [category]);
+  }, [category]); // Removed isMounted from deps as it's from outer scope
 
   return (
     <div className="flex flex-col h-screen">
       <div className="bg-purple-300 p-4">
         <div className="flex items-center bg-white rounded-lg px-4 py-2 mb-4">
-          <Search size={20} className="text-gray-600 mr-2" />
+          <SearchIcon size={20} className="text-gray-600 mr-2" />
           <input
             type="text"
             placeholder="Search services or providers..."
@@ -229,12 +301,15 @@ export default function SearchScreen() {
         </select>
       </div>
 
-      <div className="flex-1">
+      <div className="flex-1 flex flex-col overflow-hidden">
+        <div className="p-2 text-center text-sm text-gray-700 bg-gray-100 shadow-sm">
+          {locationStatus} (Source: {locationSource})
+        </div>
         {position ? (
           <MapContainer
             center={position}
             zoom={13}
-            className="w-full h-full z-0"
+            className="w-full h-full flex-1 z-0"
             scrollWheelZoom={true}
           >
             <TileLayer
@@ -242,7 +317,7 @@ export default function SearchScreen() {
               attribution="&copy; OpenStreetMap contributors"
             />
             <Marker position={position} icon={userIcon}>
-              <Popup>You are here</Popup>
+              <Popup>You are here (Accuracy: {currentAccuracy ? currentAccuracy.toFixed(0) : 'N/A'}m - {locationSource})</Popup>
             </Marker>
             <Circle
               center={position}
@@ -268,10 +343,30 @@ export default function SearchScreen() {
                     icon={providerIcon}
                   >
                     <Popup>
-                      <div>
-                        <p className="font-semibold">{provider.name}</p>
-                        <p className="text-sm">{provider.service || 'Service not specified'}</p>
-                        <p className="text-xs">Rating: {provider.rating || 'N/A'}</p>
+                      <div className="w-48 p-1">
+                        <img 
+                          src={provider.profileImage || provider.profileImage || 'https://via.placeholder.com/80'}
+                          alt={`Profile of ${provider.name || 'Provider'}`}
+                          className="w-16 h-16 rounded-full mx-auto mb-2 object-cover shadow-md"
+                          onError={(e) => {
+                            if (e.target.src !== 'https://via.placeholder.com/80') {
+                                e.target.onerror = null; 
+                                e.target.src = 'https://via.placeholder.com/80';
+                            }
+                          }}
+                        />
+                        <h3 className="text-md font-semibold text-center text-gray-800 mb-1 truncate">{provider.name || 'N/A'}</h3>
+                        <p className="text-xs text-gray-600 text-center mb-1 truncate">{provider.title || provider.service || 'Service not specified'}</p>
+                        <p className="text-xs text-yellow-500 text-center mb-2">Rating: {provider.rating ? `${Number(provider.rating).toFixed(1)}/5` : 'N/A'}</p>
+                        <button 
+                          onClick={(e) => { 
+                            e.stopPropagation();
+                            navigate(`/ServiceDetails/${provider.id}`);
+                          }}
+                          className="w-full bg-purple-500 text-white text-xs py-1 px-2 rounded hover:bg-purple-600 transition-colors focus:outline-none focus:ring-2 focus:ring-purple-400"
+                        >
+                          View Details
+                        </button>
                       </div>
                     </Popup>
                   </Marker>
@@ -279,8 +374,10 @@ export default function SearchScreen() {
               })}
           </MapContainer>
         ) : (
-          <div className="flex justify-center items-center h-full">
-            <p className="text-gray-600">Fetching your location...</p>
+          <div className="flex-1 flex justify-center items-center h-full p-4">
+            <p className="text-gray-600 px-4 text-center">
+              {loadingServices ? 'Loading services...' : 'Map will display once location is determined. Please ensure location services are enabled.'}
+            </p>
           </div>
         )}
       </div>
