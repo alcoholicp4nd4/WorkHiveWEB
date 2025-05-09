@@ -44,7 +44,7 @@ function App() {
             <Route path="/favorites" element={<PrivateRoute><Favorites /></PrivateRoute>} />
             <Route path="/chatscreen/:currentUserId/:providerId" element={<PrivateRoute><ChatScreen /></PrivateRoute>} />
             <Route path="/serviceDetails/:serviceId" element={<PrivateRoute><ServiceDetailsScreen /></PrivateRoute>} />
-            <Route path="/ProviderBookingScreen/:providerId" element={<PrivateRoute><ProviderBookingsScreen /></PrivateRoute>} />
+            <Route path="/ProviderBookingScreen/:currentUserId" element={<PrivateRoute><ProviderBookingsScreen /></PrivateRoute>} />
             <Route path="/addservice" element={<PrivateRoute><AddServiceScreen /></PrivateRoute>} />
             <Route path="/admin-dashboard" element={<PrivateRoute><AdminRoute><AdminDashboard /></AdminRoute></PrivateRoute>} />
             <Route path="/admin-reports" element={<PrivateRoute><AdminRoute><AdminReports /></AdminRoute></PrivateRoute>} />

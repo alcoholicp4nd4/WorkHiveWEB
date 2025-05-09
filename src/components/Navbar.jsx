@@ -42,6 +42,7 @@ export default function Navbar() {
                 <>
                   <Link to="/favorites" className={linkStyle('/favorites')}>Favorites</Link>
                   <Link to="/chat" className={linkStyle('/chat')}>Chat</Link>
+                  <Link to={`/providerbookingscreen/${user.uid}`} className={linkStyle(`/providerbookingscreen/${user.uid}`)}>My Bookings</Link>
 
                   {/* ✅ Admin link only for admin */}
                   {user.role === 'admin' && (

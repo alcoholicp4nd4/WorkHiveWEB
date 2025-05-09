@@ -2,12 +2,14 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { collection, query, where, getDocs, getDoc, doc } from 'firebase/firestore';
 import { db } from '../database/firebaseConfig';
 import { getAuth } from 'firebase/auth';
+import { useNavigate } from 'react-router-dom';
 
 export default function FavoriteScreen() {
   const [favorites, setFavorites] = useState([]);
   const [loading, setLoading] = useState(true);
   const auth = getAuth();
   const currentUser = auth.currentUser;
+  const navigate = useNavigate();
 
   const fetchFavorites = async () => {
     try {
@@ -75,7 +77,11 @@ export default function FavoriteScreen() {
     <div style={styles.container}>
       <div style={styles.listContainer}>
         {favorites.map(item => (
-          <div key={item.id} style={styles.serviceCard} onClick={() => {/* Navigate to service details */}}>
+          <div 
+            key={item.id} 
+            style={styles.serviceCard} 
+            onClick={() => navigate(`/ServiceDetails/${item.id}`)}
+          >
             <img
               src={item.images?.[0] || 'https://cdn.pixabay.com/photo/2015/10/05/22/37/blank-profile-picture-973460_1280.png'}
               alt={item.title}

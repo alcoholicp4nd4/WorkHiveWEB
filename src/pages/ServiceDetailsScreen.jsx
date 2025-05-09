@@ -73,34 +73,42 @@ const ServiceDetailsScreen = () => {
   }, [serviceId]);
 
   const handleBookService = async () => {
+    console.log("Booking service initiated");
     if (!currentUser) {
+      console.log("No current user");
       toast.error("Please log in to book a service.");
       navigate("/login", { state: { from: location.pathname } });
       return;
     }
 
     if (!service || !service.userId) {
+      console.log("Service data incomplete");
       toast.error("Service data incomplete.");
       return;
     }
 
     if (currentUser.uid === service.userId) {
+      console.log("User trying to book their own service");
       toast.error("You can't book your own service.");
       return;
     }
 
     try {
+      console.log("Checking existing bookings");
       const bookingsRef = collection(db, "bookings");
       const q = query(
         bookingsRef,
         where("serviceId", "==", serviceId),
-        where("userId", "==", currentUser.uid),
-        where("status", "in", ["active", "pending"])
+        where("userId", "==", currentUser.uid)
       );
-      const snapshot = await getDocs(q);
-      if (!snapshot.empty) {
-        toast.error("You already booked this service.");
-        return;
+      const querySnapshot = await getDocs(q);
+
+      if (!querySnapshot.empty) {
+        const existingBooking = querySnapshot.docs[0].data();
+        if (existingBooking.status !== 'completed') {
+          toast.error("You have an active or pending booking for this service.");
+          return;
+        }
       }
 
       const newBooking = {
@@ -113,9 +121,10 @@ const ServiceDetailsScreen = () => {
       };
 
       const bookingDocRef = await addDoc(bookingsRef, newBooking);
-      toast.success("Service booked!");
+      toast.success("Service booked successfully!");
 
-      // Create chat message and conversation
+      alert("Your booking request has been sent!");
+
       const participantIds = [currentUser.uid, service.userId].sort();
       const conversationId = participantIds.join("_");
 
@@ -140,7 +149,7 @@ const ServiceDetailsScreen = () => {
 
     } catch (err) {
       console.error("Booking error:", err);
-      toast.error("Booking failed.");
+      toast.error("Booking failed. Please try again.");
     }
   };
 
