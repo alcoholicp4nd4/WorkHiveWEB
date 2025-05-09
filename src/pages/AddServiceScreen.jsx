@@ -69,13 +69,11 @@ export default function AddServiceScreen() {
       const user = await getCurrentUser();
       if (user) {
         setUsername(user.username);
-        if (!user.isProvider) {
-          alert("Access Denied: Only service providers can add services.");
-        }
       }
     };
     fetchUser();
   }, []);
+  
 
   const onDrop = useCallback((acceptedFiles) => {
     setImages(acceptedFiles.map(file => Object.assign(file, {
@@ -90,7 +88,7 @@ export default function AddServiceScreen() {
       alert('Missing Fields: Please fill out all required fields.');
       return;
     }
-
+  
     setLoading(true);
     try {
       const user = await getCurrentUser();
@@ -99,7 +97,7 @@ export default function AddServiceScreen() {
         setLoading(false);
         return;
       }
-
+  
       const serviceData = {
         title,
         description,
@@ -108,14 +106,20 @@ export default function AddServiceScreen() {
         priceType,
         price: parseFloat(price),
         deliveryTime,
-        images: images.map(file => file.preview), // Use preview URLs
+        images: images.map(file => file.preview),
         username,
-        userId: user.uid, // Add the user's UID
+        userId: user.uid,
         createdAt: serverTimestamp(),
       };
-
+  
       await addDoc(collection(db, 'services'), serviceData);
-
+  
+      try {
+        await updateUserToProvider(user.uid);
+      } catch (err) {
+        console.warn('Service added but provider flag update failed:', err.message);
+      }
+  
       alert('Success: Service added successfully!');
       setTitle('');
       setDescription('');
@@ -125,14 +129,14 @@ export default function AddServiceScreen() {
       setPrice('');
       setDeliveryTime('');
       setImages([]);
-
     } catch (error) {
       console.error('Error:', error);
       alert('Error: Something went wrong while adding the service.');
     } finally {
       setLoading(false);
     }
-  };
+  };  
+  
 
   return (
     <div className="flex flex-col items-center bg-gray-100 p-8">

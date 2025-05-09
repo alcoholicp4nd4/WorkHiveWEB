@@ -1,5 +1,5 @@
 import React from 'react';
-import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import Navbar from './components/Navbar';
 import AnimatedBackground from './components/AnimatedBackground';
 import Home from './pages/Home';
@@ -18,7 +18,8 @@ import AdminDashboard from './pages/AdminDashboard';
 import AdminReports from './pages/AdminReports';
 import AdminAnalytics from './pages/AdminAnalytics';
 import AdminUserDetails from './pages/AdminUserDetails';
-import ProviderBookingsScreen from './pages/ProviderBookingScreen'; 
+import ProviderBookingsScreen from './pages/ProviderBookingScreen';
+import UserAnalytics from './pages/UserAnalytics'; // ✅ imported from pages
 
 const AdminRoute = ({ children }) => {
   const userData = JSON.parse(localStorage.getItem('loggedInUser'));
@@ -37,103 +38,18 @@ function App() {
             <Route path="/register" element={<Register />} />
             <Route path="/login" element={<Login />} />
             <Route path="/search/:category" element={<Search />} />
-            <Route
-              path="/profile"
-              element={
-                <PrivateRoute>
-                  <Profile />
-                </PrivateRoute>
-              }
-            />
-            <Route
-              path="/chat"
-              element={
-                <PrivateRoute>
-                  <Chat />
-                </PrivateRoute>
-              }
-            />
-            <Route
-              path="/favorites"
-              element={
-                <PrivateRoute>
-                  <Favorites />
-                </PrivateRoute>
-              }
-            />
-            <Route
-              path="/chatscreen/:currentUserId/:providerId"
-              element={
-                <PrivateRoute>
-                  <ChatScreen />
-                </PrivateRoute>
-              }
-            />
-            <Route
-              path="/serviceDetails/:serviceId"
-              element={
-                <PrivateRoute>
-                  <ServiceDetailsScreen />
-                </PrivateRoute>
-              }
-            />
-            <Route
-              path="/ProviderBookingScreen/:providerId"
-              element={
-                <PrivateRoute>
-                  <ProviderBookingsScreen />
-                </PrivateRoute>
-              }
-            />
-            <Route
-              path="/addservice"
-              element={
-                <PrivateRoute>
-                  <AddServiceScreen />
-                </PrivateRoute>
-              }
-            />
-            <Route
-              path="/admin-dashboard"
-              element={
-                <PrivateRoute>
-                  <AdminRoute>
-                    <AdminDashboard />
-                  </AdminRoute>
-                </PrivateRoute>
-              }
-            />
-            <Route
-  path="/admin-reports"
-  element={
-    <PrivateRoute>
-      <AdminRoute>
-        <AdminReports />
-      </AdminRoute>
-    </PrivateRoute>
-  }
-/>
-<Route
-  path="/admin-analytics"
-  element={
-    <PrivateRoute>
-      <AdminRoute>
-      <AdminAnalytics />
-      </AdminRoute>
-    </PrivateRoute>
-  }
-/>
-<Route
-  path="/admin-user/:userId"
-  element={
-    <PrivateRoute>
-      <AdminRoute>
-        <AdminUserDetails />
-      </AdminRoute>
-    </PrivateRoute>
-  }
-/>
-
+            <Route path="/user-analytics" element={<UserAnalytics />} /> {/* ✅ fixed this */}
+            <Route path="/profile" element={<PrivateRoute><Profile /></PrivateRoute>} />
+            <Route path="/chat" element={<PrivateRoute><Chat /></PrivateRoute>} />
+            <Route path="/favorites" element={<PrivateRoute><Favorites /></PrivateRoute>} />
+            <Route path="/chatscreen/:currentUserId/:providerId" element={<PrivateRoute><ChatScreen /></PrivateRoute>} />
+            <Route path="/serviceDetails/:serviceId" element={<PrivateRoute><ServiceDetailsScreen /></PrivateRoute>} />
+            <Route path="/ProviderBookingScreen/:providerId" element={<PrivateRoute><ProviderBookingsScreen /></PrivateRoute>} />
+            <Route path="/addservice" element={<PrivateRoute><AddServiceScreen /></PrivateRoute>} />
+            <Route path="/admin-dashboard" element={<PrivateRoute><AdminRoute><AdminDashboard /></AdminRoute></PrivateRoute>} />
+            <Route path="/admin-reports" element={<PrivateRoute><AdminRoute><AdminReports /></AdminRoute></PrivateRoute>} />
+            <Route path="/admin-analytics" element={<PrivateRoute><AdminRoute><AdminAnalytics /></AdminRoute></PrivateRoute>} />
+            <Route path="/admin-user/:userId" element={<PrivateRoute><AdminRoute><AdminUserDetails /></AdminRoute></PrivateRoute>} />
           </Routes>
         </div>
       </Router>

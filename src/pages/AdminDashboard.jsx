@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { collection, deleteDoc, doc, getDocs, updateDoc } from 'firebase/firestore';
-import { Link } from 'react-router-dom'; // ✅ Add this!
+import { Link } from 'react-router-dom';
 import { db } from '../database/firebaseConfig';
 
 export default function AdminDashboard() {
@@ -41,65 +41,55 @@ export default function AdminDashboard() {
   const userCount = users.length;
 
   return (
-    <div style={{ padding: 20 }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 20 }}>
-          <h2>Admin Dashboard</h2>
-          <a href="/admin-reports" style={{
-            padding: '8px 12px',
-            background: '#6366f1',
-            color: 'white',
-            borderRadius: '5px',
-            textDecoration: 'none'
-          }}>
-            Reports
-          </a>
-
-          <a href="/admin-analytics" style={{
-            padding: '8px 12px',
-            background: '#4f46e5',
-            color: 'white',
-            borderRadius: '5px',
-            textDecoration: 'none'
-          }}>
-            Analytics
-          </a>
+    <div className="p-6">
+      <div className="flex justify-between items-center flex-wrap gap-4">
+        <div className="flex items-center gap-4">
+          <h2 className="text-2xl font-semibold">Admin Dashboard</h2>
+          <Link to="/admin-reports" className="bg-indigo-500 hover:bg-indigo-600 text-white px-4 py-2 rounded-md text-sm">Reports</Link>
+          <Link to="/admin-analytics" className="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-md text-sm">Analytics</Link>
         </div>
 
-        <div style={{ textAlign: 'right' }}>
+        <div className="text-right space-y-1">
           <input
             type="text"
             placeholder="Search users..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            style={{ padding: 8, borderRadius: 5, marginRight: 10 }}
+            className="border rounded-md px-3 py-2 text-sm w-64"
           />
-          <div><strong>Users:</strong> {userCount}</div>
-          <div><strong>Providers:</strong> {providerCount}</div>
+          <div className="text-sm text-gray-700"><strong>Users:</strong> {userCount}</div>
+          <div className="text-sm text-gray-700"><strong>Providers:</strong> {providerCount}</div>
         </div>
       </div>
 
-      <div style={{ overflowY: 'auto', maxHeight: '70vh', marginTop: 20 }}>
+      <div className="mt-6 space-y-4 max-h-[70vh] overflow-y-auto pr-2">
         {filteredUsers.map(user => (
-          <div
-            key={user.id}
-            style={{ background: '#f1f5f9', padding: 15, marginBottom: 10, borderRadius: 8 }}
-          >
-            <strong>{user.username}</strong>
-            <p>{user.email}</p>
-            <p>Role: {user.role || 'user'}</p>
-            <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
-              <button onClick={() => updateUserRole(user.id, 'admin', user.isProvider)} style={buttonStyle('#0ea5e9')}>
-                Make Admin
-              </button>
-              <button onClick={() => deleteUser(user.id)} style={buttonStyle('#ef4444')}>
-                Delete
-              </button>
-              <Link to={`/admin-user/${user.id}`}>
-                <button style={buttonStyle('#6366f1')}>
-                  Details
+          <div key={user.id} className="bg-white shadow border border-gray-200 rounded-xl p-4">
+            <div className="flex justify-between items-center">
+              <div>
+                <h3 className="font-semibold text-lg">{user.username}</h3>
+                <p className="text-sm text-gray-600">{user.email}</p>
+                <p className="text-sm text-gray-700 mt-1">Role: <span className="font-medium">{user.role || 'user'}</span></p>
+              </div>
+              <div className="flex gap-2 flex-wrap">
+                <button
+                  onClick={() => updateUserRole(user.id, 'admin', user.isProvider)}
+                  className="bg-sky-500 hover:bg-sky-600 text-white px-3 py-2 text-sm rounded-md"
+                >
+                  Make Admin
                 </button>
-              </Link>
+                <button
+                  onClick={() => deleteUser(user.id)}
+                  className="bg-red-500 hover:bg-red-600 text-white px-3 py-2 text-sm rounded-md"
+                >
+                  Delete
+                </button>
+                <Link to={`/admin-user/${user.id}`}>
+                  <button className="bg-indigo-500 hover:bg-indigo-600 text-white px-3 py-2 text-sm rounded-md">
+                    Details
+                  </button>
+                </Link>
+              </div>
             </div>
           </div>
         ))}
@@ -107,12 +97,3 @@ export default function AdminDashboard() {
     </div>
   );
 }
-
-const buttonStyle = (bg) => ({
-  background: bg,
-  color: '#fff',
-  border: 'none',
-  padding: '8px 12px',
-  borderRadius: 5,
-  cursor: 'pointer'
-});

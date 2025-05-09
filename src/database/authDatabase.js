@@ -2,6 +2,7 @@ import { createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut } f
 import { collection, addDoc, getDocs, query, where, doc, updateDoc } from "firebase/firestore";
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import { auth, db, storage } from './firebaseConfig';
+
 const AsyncStorage = {
   setItem: async (key, value) => localStorage.setItem(key, value),
   getItem: async (key) => localStorage.getItem(key),
@@ -95,10 +96,25 @@ export const logoutUser = async () => {
 };
 
 // ✅ Promote user to provider
+
 export const updateUserToProvider = async (uid) => {
-  const userRef = doc(db, "users", uid);
-  await updateDoc(userRef, { isProvider: true });
+  const q = query(collection(db, "users"), where("uid", "==", uid));
+  const querySnapshot = await getDocs(q);
+
+  if (!querySnapshot.empty) {
+    const userDoc = querySnapshot.docs[0];
+    const userRef = doc(db, "users", userDoc.id);
+    await updateDoc(userRef, { isProvider: true });
+
+    // ✅ Also update localStorage so the frontend reflects the change
+    const updatedData = { ...userDoc.data(), isProvider: true };
+    localStorage.setItem("loggedInUser", JSON.stringify(updatedData));
+  } else {
+    console.warn("User document not found for UID:", uid);
+  }
 };
+
+
 // ✅ Upload profile image and return the download URL
 export const uploadProfileImage = async (uid, imageFile) => {
   try {

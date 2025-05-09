@@ -16,12 +16,9 @@ import {
   updateUserToProvider,
 } from '../database/authDatabase';
 import { useNavigate } from 'react-router-dom';
+
 const menuItems = [
-  { icon: Settings, label: 'Settings' },
-  { icon: Bell, label: 'Notifications' },
-  { icon: CreditCard, label: 'Payment Methods' },
-  { icon: Shield, label: 'Privacy & Security' },
-  { icon: HelpCircle, label: 'Help & Support' },
+  
 ];
 
 export default function Profile() {
@@ -29,6 +26,7 @@ export default function Profile() {
   const [profileImage, setProfileImage] = useState(null);
   const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
+
   useEffect(() => {
     const fetchUserData = async () => {
       const currentUser = await getCurrentUser();
@@ -116,6 +114,15 @@ export default function Profile() {
         >
           Add Service
         </button>
+
+        {/* ✅ Booking Details Button */}
+        <button
+  onClick={() => navigate('/user-analytics')}
+  className="w-full bg-[#CBF0F8] text-gray-800 p-4 rounded-lg text-left"
+>
+  Booking Details
+</button>
+
 
         <button
           onClick={handleLogout}
