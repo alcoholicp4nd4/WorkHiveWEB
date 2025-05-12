@@ -73,28 +73,23 @@ const ServiceDetailsScreen = () => {
   }, [serviceId]);
 
   const handleBookService = async () => {
-    console.log("Booking service initiated");
     if (!currentUser) {
-      console.log("No current user");
       toast.error("Please log in to book a service.");
       navigate("/login", { state: { from: location.pathname } });
       return;
     }
 
     if (!service || !service.userId) {
-      console.log("Service data incomplete");
       toast.error("Service data incomplete.");
       return;
     }
 
     if (currentUser.uid === service.userId) {
-      console.log("User trying to book their own service");
       toast.error("You can't book your own service.");
       return;
     }
 
     try {
-      console.log("Checking existing bookings");
       const bookingsRef = collection(db, "bookings");
       const q = query(
         bookingsRef,
@@ -122,8 +117,6 @@ const ServiceDetailsScreen = () => {
 
       const bookingDocRef = await addDoc(bookingsRef, newBooking);
       toast.success("Service booked successfully!");
-
-      alert("Your booking request has been sent!");
 
       const participantIds = [currentUser.uid, service.userId].sort();
       const conversationId = participantIds.join("_");
@@ -176,77 +169,105 @@ const ServiceDetailsScreen = () => {
     }
   };
 
-  if (loading) return <div className="text-center py-10">Loading service details...</div>;
-  if (error) return <div className="text-center text-red-600 py-10">{error}</div>;
-  if (!service) return <div className="text-center text-gray-500 py-10">No service data available.</div>;
+  if (loading) return (
+    <div className="flex justify-center items-center min-h-screen">
+      <div className="loading-spinner"></div>
+    </div>
+  );
+  
+  if (error) return (
+    <div className="text-center text-red-600 py-10 animate-fadeIn">
+      {error}
+    </div>
+  );
+  
+  if (!service) return (
+    <div className="text-center text-gray-500 py-10 animate-fadeIn">
+      No service data available.
+    </div>
+  );
 
   return (
-    <div className="flex justify-center items-center min-h-screen bg-gray-100">
-      <div className="max-w-4xl w-full p-6 bg-white rounded-xl shadow-lg">
+    <div className="flex justify-center items-center min-h-screen bg-gray-100 py-8 animate-fadeIn">
+      <div className="max-w-4xl w-full p-6 bg-white rounded-xl shadow-lg mx-4">
         <button
           onClick={() => navigate(-1)}
-          className="text-blue-500 hover:text-blue-700 mb-4 underline"
+          className="text-blue-500 hover:text-blue-700 mb-4 flex items-center transition-colors duration-200 animate-fadeIn"
         >
-          &larr; Back
+          <span className="mr-2">←</span> Back
         </button>
 
         {service.images?.length > 0 && (
-          <Carousel showThumbs={false} className="mb-6 rounded-xl overflow-hidden">
-            {service.images.map((url, index) => (
-              <div key={index}>
-                <img
-                  src={url}
-                  alt={`Service ${index}`}
-                  className="h-full w-full object-contain"
-                  onError={(e) => {
-                    e.target.onerror = null; // Prevents looping if the fallback also fails
-                    e.target.src =
-                      "https://cdn.pixabay.com/photo/2015/10/05/22/37/blank-profile-picture-973460_1280.png";
-                  }}
-                />
+          <div className="rounded-xl overflow-hidden shadow-lg animate-fadeIn animation-delay-200">
+            <Carousel
+              showThumbs={false}
+              className="rounded-xl overflow-hidden"
+              showStatus={false}
+              infiniteLoop={true}
+              autoPlay={true}
+              interval={5000}
+            >
+              {service.images.map((url, index) => (
+                <div key={index} className="relative aspect-w-16 aspect-h-9">
+                  <img
+                    src={url}
+                    alt={`Service ${index + 1}`}
+                    className="object-cover w-full h-[400px]"
+                    onError={(e) => {
+                      e.target.onerror = null;
+                      e.target.src = "https://cdn.pixabay.com/photo/2015/10/05/22/37/blank-profile-picture-973460_1280.png";
+                    }}
+                  />
+                </div>
+              ))}
+            </Carousel>
+          </div>
+        )}
+
+        <div className="mt-6 animate-fadeIn animation-delay-400">
+          <h1 className="text-3xl font-bold text-gray-800 mb-2">{service.title}</h1>
+          <p className="text-gray-500 italic mb-2">Offered by: {ownerName}</p>
+          <p className="text-gray-600 mb-4 leading-relaxed">{service.description}</p>
+          <p className="text-lg text-gray-700 font-semibold mb-4">
+            Price:{" "}
+            <span className="text-green-600">
+              {new Intl.NumberFormat("en-US", {
+                style: "currency",
+                currency: "USD",
+              }).format(service.price || 0)}
+            </span>
+          </p>
+
+          {currentUser && currentUser.uid !== service.userId && (
+            <div className="flex flex-wrap gap-4 mb-6 animate-fadeIn animation-delay-600">
+              <button
+                onClick={handleBookService}
+                className="bg-blue-500 text-white px-6 py-3 rounded-lg hover:bg-blue-600 transition-all duration-300 transform hover:scale-105 focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-opacity-50"
+              >
+                Book Service
+              </button>
+
+              <button
+                onClick={handleChat}
+                className="bg-green-500 text-white px-6 py-3 rounded-lg hover:bg-green-600 transition-all duration-300 transform hover:scale-105 focus:outline-none focus:ring-2 focus:ring-green-400 focus:ring-opacity-50"
+              >
+                Chat with Provider
+              </button>
+            </div>
+          )}
+
+          <div className="flex items-center space-x-4 mt-6 animate-fadeIn animation-delay-800">
+            <ServiceRating serviceId={serviceId} />
+            {currentUser && (
+              <div className="transform hover:scale-110 transition-transform duration-200">
+                <FavoriteButton serviceId={serviceId} userId={currentUser.uid} />
               </div>
-            ))}
-          </Carousel>
-        )}
-
-        <h1 className="text-3xl font-bold text-gray-800 mb-2">{service.title}</h1>
-        <p className="text-gray-500 italic mb-2">Offered by: {ownerName}</p>
-        <p className="text-gray-600 mb-4">{service.description}</p>
-        <p className="text-lg text-gray-700 font-semibold mb-2">
-          Price:{" "}
-          <span className="text-green-600">
-            {new Intl.NumberFormat("en-US", {
-              style: "currency",
-              currency: "USD",
-            }).format(service.price || 0)}
-          </span>
-        </p>
-
-        {currentUser && currentUser.uid !== service.userId && (
-          <>
-            <button
-              onClick={handleBookService}
-              className="bg-blue-500 text-white px-5 py-2 rounded-lg hover:bg-blue-600 transition mb-4 mr-2"
-            >
-              Book Service
-            </button>
-
-            <button
-              onClick={handleChat}
-              className="bg-green-500 text-white px-5 py-2 rounded-lg hover:bg-green-600 transition mb-4"
-            >
-              Chat with Provider
-            </button>
-          </>
-        )}
-
-        <div className="flex items-center space-x-4 mt-4">
-          <ServiceRating serviceId={serviceId} />
-          {currentUser && <FavoriteButton serviceId={serviceId} userId={currentUser.uid} />}
+            )}
+          </div>
         </div>
       </div>
     </div>
   );
-};
+}
 
 export default ServiceDetailsScreen;
